@@ -1,0 +1,9 @@
+version: "1"
+build:
+  commands:
+    - npm install
+    - npm run install-client
+    - npm run build
+start:
+  command: node index.js
+
