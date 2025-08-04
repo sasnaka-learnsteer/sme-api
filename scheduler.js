@@ -4,7 +4,7 @@ const { syncData } = require('./scheduler/dataSyncToMongo_scheduled.js');
 
 // Schedule job to run every 30 minutes
 // Cron format: '*/30 * * * *' means "every 30 minutes"
-const task = cron.schedule('*/30 * * * *', () => {
+const task = cron.schedule('*/5 * * * *', () => {
     syncData();
     logNextExecutionTime();
 }, {
@@ -22,14 +22,17 @@ function logNextExecutionTime() {
 
     const nextExecutionTime = new Date(now.getTime() + minutesUntilNextRun * 60000);
 
-    console.log(`(FYI: Next scheduled execution at: ${nextExecutionTime.toISOString()}`);
-    console.log(`Time until next execution: ${minutesUntilNextRun} minutes)`);
-}
 
-console.log('Data sync to MONGO scheduler started. Will run every 30 minutes.');
+    console.log('----------------------------------------------');
+    console.log(`Next scheduled execution at: ${nextExecutionTime.toISOString()}`);
+    console.log(`Time until next execution: ${minutesUntilNextRun} minutes`);
+    console.log('----------------------------------------------');
+}
 
 // Run once at startup
 syncData();
 logNextExecutionTime();
+
+console.log('Data sync to MONGO scheduler started. Will run every 30 minutes.');
 
 module.exports = task;
