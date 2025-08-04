@@ -1,38 +1,74 @@
 // scheduler.js
 const cron = require('node-cron');
-const { syncData } = require('./scheduler/dataSyncToMongo_scheduled.js');
+const { syncData, cleanCollection } = require('./scheduler/dataSyncToMongo_scheduled.js');
+const { updateExamIndexNumbers } = require('./services/indexNumberGenerator');
+const { assignCandidatesToPanelMembers } = require('./utils/candidateAssignment');
 
-// Schedule job to run every 30 minutes
-// Cron format: '*/30 * * * *' means "every 30 minutes"
-const task = cron.schedule('*/5 * * * *', () => {
-    syncData();
-    logNextExecutionTime();
-}, {
-    scheduled: true
-});
+const initScheduler = () => {
+    console.log('Initializing scheduler...');
 
-// Function to log the next execution time with countdown
-function logNextExecutionTime() {
-    const now = new Date();
-    const minutesNow = now.getMinutes();
+    // Daily task at midnight
+    cron.schedule('0 0 * * *', async () => {
+        try {
+            console.log('Running daily scheduled task:', new Date().toISOString());
+            cleanCollection();
+        } catch (error) {
+            console.error('Scheduler error:', error);
+        }
+    });
 
-    // Calculate next execution time (either at 0 or 30 minutes)
-    const nextMinutes = minutesNow >= 30 ? 60 : 30;
-    const minutesUntilNextRun = nextMinutes - (minutesNow % 30);
+    // Run at 1:00 AM every day (when system load is typically low)
+    cron.schedule('0 1 * * *', async () => {
+        try {
+            console.log('Running daily scheduled task:', new Date().toISOString());
+            console.log('Running scheduled index number generation');
+            updateExamIndexNumbers();
+        } catch (error) {
+            console.error('Scheduler error:', error);
+        }
+    });
 
-    const nextExecutionTime = new Date(now.getTime() + minutesUntilNextRun * 60000);
+    // Run at 3:00 AM every day
+    // This time is chosen because:
+    // 1. System load is typically at its lowest
+    // 2. It's before business hours but gives time to address any issues before the next day
+    // 3. Database maintenance operations are less likely to interfere
+    cron.schedule('0 3 * * *', async () => {
+        try {
+            console.log('Running daily candidate assignment task:', new Date().toISOString());
+            const result = await assignCandidatesToPanelMembers();
+            console.log('Assignment result:', result);
+
+            if (!result.success) {
+                // Log detailed error for administrative review
+                console.error('Assignment FAILED:', result.message);
+            } else if (result.assignedCount > 0) {
+                // Log successful assignments
+                console.log(`Assignment SUCCESS`);
+            }
+        } catch (error) {
+            console.error('Candidate assignment scheduler error:', error);
+        }
+    });
+
+    // Every 5 mins task
+    cron.schedule('*/5 * * * *', () => {
+        console.log('Every 5 min task running:', new Date().toISOString());
+        syncData();
+    });
+
+    // Run at startup
+    cleanCollection();
+    syncData().then(() => {
+        updateExamIndexNumbers();
+        assignCandidatesToPanelMembers();
+    });
 
 
-    console.log('----------------------------------------------');
-    console.log(`Next scheduled execution at: ${nextExecutionTime.toISOString()}`);
-    console.log(`Time until next execution: ${minutesUntilNextRun} minutes`);
-    console.log('----------------------------------------------');
-}
+    console.log('Data sync to MONGO scheduler started. Will run every 5 minutes.');
+    console.log('Index number generation will run once per day at 1:00 AM');
 
-// Run once at startup
-syncData();
-logNextExecutionTime();
+    console.log('Scheduler initialized successfully');
+};
 
-console.log('Data sync to MONGO scheduler started. Will run every 30 minutes.');
-
-module.exports = task;
+module.exports = { initScheduler };
