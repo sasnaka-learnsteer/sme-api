@@ -13,6 +13,24 @@
       "use": "@vercel/node"
     }
   ],
+  "functions": {
+    "api/cron/daily-assignment.js": {
+      "maxDuration": 30
+    },
+    "api/cron/sync-data.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily-assignment",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/sync-data",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

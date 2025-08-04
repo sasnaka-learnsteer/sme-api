@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const cron = require('node-cron');
 require('dotenv').config();
 const { initScheduler } = require('./scheduler'); // Import scheduler
 
@@ -30,5 +29,5 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   // Start the scheduler when the server starts
-  // initScheduler();
+  initScheduler();
 });
