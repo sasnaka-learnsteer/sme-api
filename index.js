@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 const { initScheduler } = require('./scheduler'); // Import scheduler
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +26,45 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
 }
+
+
+
+// server.js process goes here
+console.log('Starting server.js from index.js...');
+
+// Spawn server.js as a child process
+const serverProcess = spawn('node', [path.join(__dirname, 'server.js')], {
+  stdio: 'inherit' // This will pipe the child's stdout/stderr to the parent process
+});
+
+// Handle server process events
+serverProcess.on('error', (err) => {
+  console.error('Failed to start server process:', err);
+});
+
+serverProcess.on('exit', (code, signal) => {
+  if (code !== 0) {
+    console.log(`Server process exited with code ${code} and signal ${signal}`);
+  }
+});
+
+// Handle parent process termination
+process.on('SIGTERM', () => {
+  console.log('Terminating server process...');
+  serverProcess.kill();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('Terminating server process...');
+  serverProcess.kill();
+  process.exit(0);
+});
+
+console.log('Server started in background. Main process continuing...');
+
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
