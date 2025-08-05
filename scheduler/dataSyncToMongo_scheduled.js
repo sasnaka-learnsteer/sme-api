@@ -25,7 +25,6 @@ async function fetchSheetData() {
     }
 
     const headers = rows[0];
-    console.log('Headers found:', headers);
 
     // Find the NIC column (handle spaces and case variations)
     const nicColumn = headers.find(header =>

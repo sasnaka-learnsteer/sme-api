@@ -51,9 +51,9 @@ const initScheduler = () => {
         }
     });
 
-    // Every 5 mins task
-    cron.schedule('*/5 * * * *', () => {
-        console.log('Every 5 min task running:', new Date().toISOString());
+    // Every 1 hr task
+    cron.schedule('0 * * * *', () => {
+        console.log('Every 1 hr task running:', new Date().toISOString());
         syncData();
     });
 
@@ -65,7 +65,7 @@ const initScheduler = () => {
     });
 
 
-    console.log('Data sync to MONGO scheduler started. Will run every 5 minutes.');
+    console.log('Data sync to MONGO scheduler started. Will run every 1 hour.');
     console.log('Index number generation will run once per day at 1:00 AM');
 
     console.log('Scheduler initialized successfully');
