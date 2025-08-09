@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "utopian-pride-467901-a2",
+  "private_key_id": "d81676b2f9379d5304c305ecdbebde105083b505",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCVgqzhx1pf319C\nARHXqZV3fcocI8w7oOcraLns2zpiwd7JqgfQ9ttppQ3Xs0bn/YKyf7bn1dSnSt6h\nFRjlBK6wZxHjLv5sM1zbEJiIduVfAIYA3FtBnNlTNnkypJ6HI2nd4Rx5kQMN/vXx\nUOcnxvv2u1W4xON3OFZHiBZkeMNzFhdPncH2UlNyed7qkPIYk+4/jXizSojrclUi\nWZCczuH1RwIhL7Xbevl0p6hD3wYL+oL3obS5SeJAV5fvS9Zzcua3Q/M7cyNsXM+i\nrbr4oZRtrgHGQIacC92f1WgBoMnOfT90aLjYO1wjswN7YiotbTw/KBROrDpcc+Zv\nrBPmJBbZAgMBAAECggEAAuEsr7+Ncc3FUangHFl/j7jcQOz+lMJtWWRvukxhpD/M\nKPGtq1xpzu/XI6moCrVTBFmZ3f68FQnH3m3f2B9eNvcRPOEtlMtrdSutaGlz0v/Z\nVOBpoIqjE+t3a56IkB1CP3wDtqKwnp8jwQVYIme+eBrVFJU0NVpgLQoFtmMuDoQd\nnOhxhbS8AAvJBEAY0v+pQCxur2ieF91NJAOlY7LyeCSXy7KA3jtEum4olq1C/eGQ\nkfOYGVNNzYS2pViVC3Xnh4n9wPd6deUX8V46wwJsmLEsuaUsWw1NiKfkNVuIvHPh\nkDGKCspLHWRM8EmPYI20rtRC/pwFkdHaUMFr1CWcZQKBgQDNGnAO+DFoPjlHhzuE\npRFSu9bHIQ80rziRRx8khmyhQngUw4604nEHob6Hh44RezQ7Y1/xLWiIUDcuEraH\nJRcJYxlMHJER/daEf/suoxBRzqaU7q2mCpvxCrv2pIORVaXF1hGTRYLMvFb11hff\n4ZXQHWYsV4GMLRgFXfb6cuUgdQKBgQC6nJn255B5eIrO2ZnckrIQ0wbiR0goE5VI\ne35IUo0DE2+RLehHdARTIi69ShzMYTQcyEuxAWEL5ChKNfouMDNnz3juAxn1KkRp\nkLAwg12FhpX36BKmHMmzs7BC631vo8NxsZY5bsFM5Pfl+l7Kp0sHOcBRwiDByd30\nuFIPJMUQVQKBgGmJ8B2T0wCb/Cd1S8gOlGJpK7Sdq1Bl1YrT+Q93aFB2fonYswca\n+iR+MydUNmOCbTceBJF61y5FcI9xq6DREhCPgMXscS2723Wk0WCHIe+mkYtTYeFt\n1h5rcpsQvm67jqjFZZfNjefCBlFL0E8wqkFDz36DrLKvxYuFdYAcPRC9AoGAKTML\n1vQW9IqFcted3ZHRmF9OxMRiDN8N9Vu2bLc1BLnUxuOwxZ26mrQQR6BGLWVEgRpD\ng8e/KkXsEz5JhssDfmbS1xF+OJ9lTT0xePR3wFQPZhUpkN0INxFz18JwBibMrpw7\ng2CNcrGWfYLCTNGUgfrhF+vZGY+83huXmlpO26UCgYArw/6qH5YgFRj7OYV0PR7k\nSPLyuyfVIOdIMKvgwJqqEvAB9p5RW8X91rz01CoT9hPoBAVCXvW+AfIBmFUqqLv1\ni0V5bPDm5h/jdeO29noN621tgkk6ih8y7mgmuDuT98QzJI1RH/kLzQf4Tpz5oCYL\ntEE+1Yfd2k+e9WOnuHD7VQ==\n-----END PRIVATE KEY-----\n",
+  "client_email": "smeadmin@utopian-pride-467901-a2.iam.gserviceaccount.com",
+  "client_id": "105018265519092260377",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/smeadmin%40utopian-pride-467901-a2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
