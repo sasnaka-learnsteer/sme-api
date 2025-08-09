@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { MongoClient, ObjectId } = require('mongodb');
+const {MONGODB_COLLECTION, MONGODB_DB, MONGODB_URI} = require("../config/env");
 require('dotenv').config();
 
 // Middleware to verify admin token
@@ -82,6 +83,58 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
   } finally {
     await client.close();
   }
+});
+
+router.put('/candidate-update-by-admin', async (req, res) => {
+    const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers } = req.body;
+    if (!NIC) return res.status(400).json({ error: 'NIC required' });
+
+    const client = new MongoClient(MONGODB_URI);
+    try {
+        await client.connect();
+        const db = client.db(MONGODB_DB);
+        const collection = db.collection(MONGODB_COLLECTION);
+
+        const updateFields = {};
+        if (EmailAddress) updateFields['Email Address'] = EmailAddress;
+        if (WhatsappNumber) updateFields['Whatsapp Number'] = WhatsappNumber;
+        if (SubjectStream) updateFields['Subject Stream'] = SubjectStream;
+        if (typeof Preferred_Exam_Center_Confirmed === 'boolean') {
+            updateFields['Preferred_Exam_Center_Confirmed'] = Preferred_Exam_Center_Confirmed;
+        }
+        if (Array.isArray(confirmed_papers)) {
+            updateFields['confirmed_papers'] = confirmed_papers;
+        }
+
+        const result = await collection.updateOne(
+            { NIC },
+            { $set: updateFields }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+        res.json({ message: 'Document updated', modifiedCount: result.modifiedCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    } finally {
+        await client.close();
+    }
+});
+
+router.get('/api/exams', verifyAdminToken, async (req, res) => {
+    const client = new MongoClient(MONGODB_URI);
+    try {
+        await client.connect();
+        const db = client.db(MONGODB_DB);
+        const examsCollection = db.collection(process.env.EXAMS_MONGO_COLLECTION);
+        const exams = await examsCollection.find({}).toArray();
+        res.json({ exams });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    } finally {
+        await client.close();
+    }
 });
 
 module.exports = router;
