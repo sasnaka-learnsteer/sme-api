@@ -3,6 +3,7 @@ const cron = require('node-cron');
 const { syncData, cleanCollection } = require('./scheduler/dataSyncToMongo_scheduled.js');
 const { updateExamIndexNumbers } = require('./services/indexNumberGenerator');
 const { assignCandidatesToPanelMembers } = require('./utils/candidateAssignment');
+const {cleanAdminCollection, syncAdminData} = require("./scheduler/adminDataSyncToMongo");
 
 const initScheduler = () => {
     console.log('Initializing scheduler...');
@@ -12,10 +13,12 @@ const initScheduler = () => {
         try {
             console.log('Running daily scheduled task:', new Date().toISOString());
             cleanCollection();
+            cleanAdminCollection()
         } catch (error) {
             console.error('Scheduler error:', error);
         }
     });
+    console.log('[CRON JOB] Clean DB Collections is started. Will run daily at midnight.');
 
     // Run at 1:00 AM every day (when system load is typically low)
     // cron.schedule('0 1 * * *', async () => {
@@ -27,6 +30,7 @@ const initScheduler = () => {
     //         console.error('Scheduler error:', error);
     //     }
     // });
+    console.log('[CRON JOB] Daily Index Number generation for candidates is turned OFF now');
 
     // Run at 3:00 AM every day
     // This time is chosen because:
@@ -50,24 +54,30 @@ const initScheduler = () => {
     //         console.error('Candidate assignment scheduler error:', error);
     //     }
     // });
+    console.log('[CRON JOB] Assigning Candidates to panel members is turned OFF now');
 
     // Every 1 hr task
     cron.schedule('0 * * * *', () => {
         console.log('Every 1 hr task running:', new Date().toISOString());
         syncData();
+        syncAdminData()
     });
+    console.log('[CRON JOB] Data sync to MONGO is started. Will run every 1 hour.');
 
     // Run at startup
+    console.log('Clean DB Collections is STARTED [ONE time RUN at START]');
     cleanCollection();
+    cleanAdminCollection()
+    console.log('Clean DB Collections is FINISHED');
     syncData().then(() => {
+        syncAdminData()
         // updateExamIndexNumbers();
+        console.log('Index number generation is turned off now');
+        console.log('Assign Candidates to Panel Members [ONE time RUN at START] - TURNED OFF now');
+        // console.log('Assign Candidates to Panel Members is STARTED [ONE time RUN at START]');
         // assignCandidatesToPanelMembers();
+        // console.log('Assign Candidates to Panel Members is FINISHED');
     });
-
-
-    console.log('Data sync to MONGO scheduler started. Will run every 1 hour.');
-    console.log('Index number generation is turned off now');
-    console.log('Assigning Candidates to panel members is turned off now');
 
     console.log('Scheduler initialized successfully');
 };

@@ -1,9 +1,10 @@
 const env = require('../config/env');
 const { google } = require('googleapis');
 const { MongoClient } = require('mongodb');
+const { getProvinceByDistrict } = require("../scheduler/adminDataSyncToMongo");
 
 async function fetchSheetData() {
-    console.log('Starting Google Sheets data fetch...');
+    console.log('Starting Candidates data fetch form GSheet...');
 
     const auth = new google.auth.GoogleAuth({
         keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
@@ -134,6 +135,9 @@ async function insertIntoMongo(docs) {
                     skippedCount++;
                     continue;
                 }
+
+                // Map district to province and add Province key
+                doc.Province = getProvinceByDistrict(doc.District);
 
                 // Check if document with same NIC exists
                 const existingDoc = await collection.findOne({ NIC: doc.NIC });

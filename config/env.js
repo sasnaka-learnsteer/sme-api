@@ -10,11 +10,13 @@ module.exports = {
     // Google Sheets Configuration
     GOOGLE_SERVICE_ACCOUNT_KEY: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
     SHEET_ID: process.env.SHEET_ID,
+    ADMIN_SHEET_ID: process.env.ADMIN_SHEET_ID,
 
     // MongoDB Configuration
     MONGODB_URI: process.env.MONGODB_URI ,
     MONGODB_DB: process.env.MONGODB_DB ,
     MONGODB_COLLECTION: process.env.MONGODB_COLLECTION ,
+    ADMIN_MONGODB_COLLECTION: process.env.ADMIN_MONGODB_COLLECTION ,
 
     // Other configurations
     PORT: process.env.PORT || 3001,

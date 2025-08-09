@@ -30,7 +30,7 @@ router.post('/login', async (req, res) => {
   try {
     await client.connect();
     const db = client.db(process.env.MONGODB_DB);
-    const adminCollection = db.collection('sme25adminpanel');
+    const adminCollection = db.collection(process.env.ADMIN_MONGODB_COLLECTION);
 
     const panelMember = await adminCollection.findOne({ panelId });
 
@@ -57,7 +57,7 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
   try {
     await client.connect();
     const db = client.db(process.env.MONGODB_DB);
-    const adminCollection = db.collection('sme25adminpanel');
+    const adminCollection = db.collection(process.env.ADMIN_MONGODB_COLLECTION);
     const candidateCollection = db.collection(process.env.MONGODB_COLLECTION);
 
     // Get panel member data
