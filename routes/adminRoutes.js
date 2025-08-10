@@ -85,7 +85,7 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
                 'Preferred Exam Center': 1,
                 'Whatsapp Number': 1,
                 'examIndexNumber': 1,
-                'Preferred Exam Center Confirmed': 1,
+                'Preferred_Exam_Center_Confirmed': 1,
                 'Subject Stream': 1,
                 'confirmed_papers': 1,
                 'joined_channels_confirmed': 1
