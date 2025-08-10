@@ -67,14 +67,34 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
     if (!panelMember) {
       return res.status(404).json({ message: 'Panel member not found' });
     }
+      // Only include required fields
+      const filteredPanelMember = {
+          Name: panelMember["Name"],
+          candidateCount: panelMember["candidateCount"],
+          panelId: panelMember["panelId"],
+          IsAMentor: panelMember["IsAMentor"],
+      };
 
     // Get all assigned candidates for this panel member
-    const assignedCandidates = await candidateCollection.find({
-      assigned_to_panel: req.panelId
-    }).toArray();
+    const assignedCandidates = await candidateCollection.find(
+        { assigned_to_panel: req.panelId },
+        {
+            projection: {
+                'Full Name': 1,
+                'Email Address': 1,
+                'Preferred Exam Center': 1,
+                'Whatsapp Number': 1,
+                'examIndexNumber': 1,
+                'Preferred Exam Center Confirmed': 1,
+                'Subject Stream': 1,
+                'confirmed_papers': 1,
+                'joined_channels_confirmed': 1
+            }
+        }
+    ).toArray();
 
     res.status(200).json({
-      panelMember,
+        panelMember: filteredPanelMember,
       assignedCandidates
     });
   } catch (error) {
