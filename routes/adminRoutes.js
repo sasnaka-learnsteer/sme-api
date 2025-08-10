@@ -107,7 +107,7 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
 
 router.post('/candidate-update-by-admin', async (req, res) => {
     const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joinedChannelsConfirmed } = req.body;
-    if (!NIC) return res.status(400).json({ error: 'NIC required' });
+    // if (!NIC) return res.status(400).json({ error: 'NIC required' });
 
     const client = new MongoClient(MONGODB_URI);
     try {
