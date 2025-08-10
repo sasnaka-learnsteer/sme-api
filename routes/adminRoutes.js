@@ -80,6 +80,7 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
         { assigned_to_panel: req.panelId },
         {
             projection: {
+                'NIC':1,
                 'Full Name': 1,
                 'Email Address': 1,
                 'Preferred Exam Center': 1,
