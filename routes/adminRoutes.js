@@ -106,6 +106,30 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
   }
 });
 
+// GET /api/admin/candidate-by-nic/:nic
+router.get('/candidate-by-nic/:nic', async (req, res) => {
+    const { nic } = req.params;
+    const client = new MongoClient(MONGODB_URI);
+
+    try {
+        await client.connect();
+        const db = client.db(MONGODB_DB);
+        const collection = db.collection(MONGODB_COLLECTION);
+
+        const candidate = await collection.findOne({ NIC: nic });
+
+        if (!candidate) {
+            return res.status(404).json({ message: 'Candidate not found' });
+        }
+
+        res.json({ candidate });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    } finally {
+        await client.close();
+    }
+});
+
 router.post('/candidate-update-by-admin', async (req, res) => {
     const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joinedChannelsConfirmed } = req.body;
     // if (!NIC) return res.status(400).json({ error: 'NIC required' });
