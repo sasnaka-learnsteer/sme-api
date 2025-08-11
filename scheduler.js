@@ -4,6 +4,7 @@ const { syncData, cleanCollection } = require('./scheduler/dataSyncToMongo_sched
 const { updateExamIndexNumbers } = require('./services/indexNumberGenerator');
 const { assignCandidatesToPanelMembers } = require('./utils/candidateAssignment');
 const {cleanAdminCollection, syncAdminData} = require("./scheduler/adminDataSyncToMongo");
+const {generateAndStoreQRCodes} = require("./routes/qrCodeRoutes");
 
 const initScheduler = () => {
     console.log('Initializing scheduler...');
@@ -11,14 +12,15 @@ const initScheduler = () => {
     // Daily task at midnight
     cron.schedule('0 0 * * *', async () => {
         try {
-            console.log('Running daily scheduled task:', new Date().toISOString());
-            cleanCollection();
-            cleanAdminCollection()
+            console.log('Running daily scheduled task: cleanCollection() & cleanAdminCollection()', new Date().toISOString());
+            await cleanCollection();
+            await cleanAdminCollection()
+            console.log('Completed daily scheduled task: cleanCollection() & cleanAdminCollection()', new Date().toISOString());
         } catch (error) {
             console.error('Scheduler error:', error);
         }
     });
-    console.log('[CRON JOB] Clean DB Collections is started. Will run daily at midnight.');
+    console.log('[CRON JOB] cleanCollection() & cleanAdminCollection() is started. Will run daily at midnight.');
 
     // Run at 1:00 AM every day (when system load is typically low)
     // cron.schedule('0 1 * * *', async () => {
@@ -59,24 +61,32 @@ const initScheduler = () => {
     // Every 1 hr task
     cron.schedule('0 * * * *', () => {
         console.log('Every 1 hr task running:', new Date().toISOString());
-        syncData();
-        syncAdminData()
+        console.log('Running hourly scheduled task: syncData() & syncAdminData()', new Date().toISOString());
+        syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
+        syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
+        console.log('Running hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
+        generateAndStoreQRCodes().then(() => console.log('Completed hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
     });
     console.log('[CRON JOB] Data sync to MONGO is started. Will run every 1 hour.');
+    console.log('[CRON JOB] Generate QR code for candidates is started. Will run every 1 hour.');
 
     // Run at startup
-    console.log('Clean DB Collections is STARTED [ONE time RUN at START]');
-    cleanCollection();
-    cleanAdminCollection()
-    console.log('Clean DB Collections is FINISHED');
+    console.log('cleanCollection() & cleanAdminCollection() is STARTED [ONE time RUN at START]');
+    cleanCollection().then(() => console.log('cleanCollection() is FINISHED'));
+    cleanAdminCollection().then(() => console.log('cleanAdminCollection() is FINISHED'))
+
+    console.log('syncData() is STARTED [ONE time RUN at START]');
     syncData().then(() => {
-        syncAdminData()
+        console.log('syncData() is FINISHED. Starting other jobs...')
+        syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
         // updateExamIndexNumbers();
-        console.log('Index number generation is turned off now');
+        console.log('Index number generation [ONE time RUN at START] - TURNED OFF now');
         console.log('Assign Candidates to Panel Members [ONE time RUN at START] - TURNED OFF now');
         // console.log('Assign Candidates to Panel Members is STARTED [ONE time RUN at START]');
         // assignCandidatesToPanelMembers();
         // console.log('Assign Candidates to Panel Members is FINISHED');
+        console.log('Generate QR code for candidates is STARTED [ONE time RUN at START]');
+        generateAndStoreQRCodes().then(() => console.log('Generate QR code for candidates is FINISHED'))
     });
 
     console.log('Scheduler initialized successfully');

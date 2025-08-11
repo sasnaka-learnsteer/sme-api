@@ -48,15 +48,15 @@ async function fetchSheetData() {
         return doc;
     });
 
-    console.log(`Processed ${data.length} data rows`);
+    console.log(`[Candidates data fetch] Processed ${data.length} data rows`);
     return data;
 }
 
 async function processDataForMongo(docs) {
-    console.log('⚙️ Processing data for MongoDB...');
+    console.log('⚙️[Candidates data fetch] Processing data for MongoDB...');
 
     if (!docs || docs.length === 0) {
-        console.log('❌ No documents to process');
+        console.log('❌[Candidates data fetch] No documents to process');
         return [];
     }
 
@@ -89,9 +89,9 @@ async function processDataForMongo(docs) {
         validCount++;
     }
 
-    console.log(`✅ Valid records: ${validCount}, Skipped (no NIC): ${skippedCount}`);
-    console.log(`🔄 Duplicate NICs found: ${duplicateCount} duplicates`);
-    console.log(`📋 Unique NICs after deduplication: ${nicMap.size}`);
+    console.log(`✅[Candidates] Valid records: ${validCount}, Skipped (no NIC): ${skippedCount}`);
+    console.log(`🔄[Candidates] Duplicate NICs found: ${duplicateCount} duplicates`);
+    console.log(`📋[Candidates] Unique NICs after deduplication: ${nicMap.size}`);
 
     // Show some examples of duplicate NICs
     // if (duplicateTracker.size > 0) {
@@ -192,18 +192,18 @@ Registration processing complete:
 }
 
 async function syncData() {
-    console.log(`Running data sync to MONGO at ${new Date().toISOString()}`);
+    console.log(`Running candidates data sync to MONGO at ${new Date().toISOString()}`);
     try {
         const data = await fetchSheetData();
         await insertIntoMongo(data);
-        console.log(`Data sync to MONGO completed at ${new Date().toISOString()}`);
+        console.log(`candidates data sync to MONGO completed at ${new Date().toISOString()}`);
     } catch (error) {
         console.error('Error during data sync to MONGO:', error);
     }
 }
 
 async function cleanCollection() {
-    console.log(`Starting collection cleanup at ${new Date().toISOString()}`);
+    console.log(`Starting registrations collection cleanup at ${new Date().toISOString()}`);
     const client = new MongoClient(env.MONGODB_URI);
 
     try {
@@ -213,7 +213,7 @@ async function cleanCollection() {
 
         // Get all distinct NICs
         const distinctNics = await collection.distinct('NIC', { NIC: { $exists: true, $ne: '' } });
-        console.log(`Found ${distinctNics.length} distinct NICs in collection`);
+        console.log(`[registrations collection cleanup] Found ${distinctNics.length} distinct NICs in collection`);
 
         let removedCount = 0;
 
@@ -238,9 +238,9 @@ async function cleanCollection() {
             }
         }
 
-        console.log(`Cleanup complete: Removed ${removedCount} duplicate documents`);
+        console.log(`[registrations] Cleanup complete: Removed ${removedCount} duplicate documents`);
     } catch (error) {
-        console.error('Error during collection cleanup:', error);
+        console.error('Error during registrations collection cleanup:', error);
     } finally {
         await client.close();
     }

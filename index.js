@@ -16,7 +16,8 @@ app.use(express.json());
 // Routes
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/candidates', require('./routes/candidateRoutes'));
+// app.use('/api/mysme', require('./routes/MySMERoutes'));
+app.use('/api/qrcode', require('./routes/qrCodeRoutes'));
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -30,7 +31,7 @@ if (process.env.NODE_ENV === 'production') {
 
 
 // server.js process goes here
-console.log('Starting server.js from index.js...');
+console.log('Starting server for WEBHOOK, from index.js...');
 
 // Spawn server.js as a child process
 const serverProcess = spawn('node', [path.join(__dirname, 'server.js')], {
@@ -39,35 +40,32 @@ const serverProcess = spawn('node', [path.join(__dirname, 'server.js')], {
 
 // Handle server process events
 serverProcess.on('error', (err) => {
-  console.error('Failed to start server process:', err);
+  console.error('Failed to start server for WEBHOOK process:', err);
 });
 
 serverProcess.on('exit', (code, signal) => {
   if (code !== 0) {
-    console.log(`Server process exited with code ${code} and signal ${signal}`);
+    console.log(`server for WEBHOOK process exited with code ${code} and signal ${signal}`);
   }
 });
 
 // Handle parent process termination
 process.on('SIGTERM', () => {
-  console.log('Terminating server process...');
+  console.log('Terminating server for WEBHOOK process...');
   serverProcess.kill();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('Terminating server process...');
+  console.log('Terminating server for WEBHOOK process...');
   serverProcess.kill();
   process.exit(0);
 });
 
-console.log('Server started in background. Main process continuing...');
-
-
-
+console.log('server for WEBHOOK started in background. Main process continuing...');
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Main Server is running on port ${PORT}`);
   // Start the scheduler when the server starts
   initScheduler();
 });

@@ -43,5 +43,5 @@ app.post('/api/webhook/new-registration', (req, res) => {
 
 const PORT = process.env.WEBSOCKET_PORT || 3002;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`server for WEBHOOK running on port ${PORT}`);
 });

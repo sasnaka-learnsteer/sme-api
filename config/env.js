@@ -17,6 +17,8 @@ module.exports = {
     MONGODB_DB: process.env.MONGODB_DB ,
     MONGODB_COLLECTION: process.env.MONGODB_COLLECTION ,
     ADMIN_MONGODB_COLLECTION: process.env.ADMIN_MONGODB_COLLECTION ,
+    EXAMS_MONGO_COLLECTION: process.env.EXAMS_MONGO_COLLECTION ,
+    MYSME_MONGO_COLLECTION: process.env.MYSME_MONGO_COLLECTION ,
 
     // Other configurations
     PORT: process.env.PORT || 3001,
