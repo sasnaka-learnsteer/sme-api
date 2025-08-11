@@ -226,7 +226,7 @@ async function syncAdminData() {
 }
 
 async function cleanAdminCollection() {
-    console.log(`Starting collection cleanup at ${new Date().toISOString()}`);
+    console.log(`Starting adminpanel collection cleanup at ${new Date().toISOString()}`);
     const client = new MongoClient(env.MONGODB_URI);
 
     try {
@@ -236,7 +236,7 @@ async function cleanAdminCollection() {
 
         // Get all distinct WPNumbers
         const distinctWPNumbers = await collection.distinct('WPNumber', { WPNumber: { $exists: true, $ne: '' } });
-        console.log(`Found ${distinctWPNumbers.length} distinct WPNumbers in collection`);
+        console.log(`[adminpanel collection cleanup] Found ${distinctWPNumbers.length} distinct WPNumbers in collection`);
 
         let removedCount = 0;
 
@@ -261,9 +261,9 @@ async function cleanAdminCollection() {
             }
         }
 
-        console.log(`Cleanup complete: Removed ${removedCount} duplicate documents`);
+        console.log(`[adminpanel] Cleanup complete: Removed ${removedCount} duplicate documents`);
     } catch (error) {
-        console.error('Error during collection cleanup:', error);
+        console.error('Error during adminpanel collection cleanup:', error);
     } finally {
         await client.close();
     }
