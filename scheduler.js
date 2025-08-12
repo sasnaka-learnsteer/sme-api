@@ -22,17 +22,17 @@ const initScheduler = () => {
     });
     console.log('[CRON JOB] cleanCollection() & cleanAdminCollection() is started. Will run daily at midnight.');
 
-    // Run at 1:00 AM every day (when system load is typically low)
+    // // Run at 1:00 AM every day (when system load is typically low)
     // cron.schedule('0 1 * * *', async () => {
     //     try {
-    //         console.log('Running daily scheduled task:', new Date().toISOString());
-    //         console.log('Running scheduled index number generation');
-    //         updateExamIndexNumbers();
+    //         console.log('Running daily scheduled task: index number generation & update', new Date().toISOString());
+    //         await updateExamIndexNumbers();
+    //         console.log('Completed daily scheduled task: index number generation & update', new Date().toISOString());
     //     } catch (error) {
     //         console.error('Scheduler error:', error);
     //     }
     // });
-    console.log('[CRON JOB] Daily Index Number generation for candidates is turned OFF now');
+    console.log('[CRON JOB] Daily Index Number generation for candidates is turned OFF now. Instead will run hourly');
 
     // Run at 3:00 AM every day
     // This time is chosen because:
@@ -56,17 +56,28 @@ const initScheduler = () => {
     //         console.error('Candidate assignment scheduler error:', error);
     //     }
     // });
-    console.log('[CRON JOB] Assigning Candidates to panel members is turned OFF now');
+    console.log('[CRON JOB] Daily Assigning Candidates to panel members is turned OFF now');
 
-    // Every 1 hr task
-    cron.schedule('0 * * * *', () => {
-        console.log('Every 1 hr task running:', new Date().toISOString());
-        console.log('Running hourly scheduled task: syncData() & syncAdminData()', new Date().toISOString());
+    // Every 1 hr tasks
+    cron.schedule('0 * * * *', async () => {
+        console.log('Starting hourly scheduled tasks..', new Date().toISOString());
+
+        console.log('[1] Running hourly scheduled task: syncData() & syncAdminData()', new Date().toISOString());
         syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
         syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
-        console.log('Running hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
+
+        try {
+            console.log('[2] Running hourly scheduled task: index number generation & update', new Date().toISOString());
+            await updateExamIndexNumbers();
+            console.log('Completed hourly scheduled task: index number generation & update', new Date().toISOString());
+        } catch (error) {
+            console.error('Scheduler error:', error);
+        }
+
+        console.log('[3] Running hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
         generateAndStoreQRCodes().then(() => console.log('Completed hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
     });
+
     console.log('[CRON JOB] Data sync to MONGO is started. Will run every 1 hour.');
     console.log('[CRON JOB] Generate QR code for candidates is started. Will run every 1 hour.');
 
@@ -79,12 +90,15 @@ const initScheduler = () => {
     syncData().then(() => {
         console.log('syncData() is FINISHED. Starting other jobs...')
         syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
-        // updateExamIndexNumbers();
-        console.log('Index number generation [ONE time RUN at START] - TURNED OFF now');
+
+        console.log('STARTING Index number generation [ONE time RUN at START]');
+        updateExamIndexNumbers().then(() => console.log('FINISHED Index number generation [ONE time RUN at START]'));
+
         console.log('Assign Candidates to Panel Members [ONE time RUN at START] - TURNED OFF now');
         // console.log('Assign Candidates to Panel Members is STARTED [ONE time RUN at START]');
         // assignCandidatesToPanelMembers();
         // console.log('Assign Candidates to Panel Members is FINISHED');
+
         console.log('Generate QR code for candidates is STARTED [ONE time RUN at START]');
         generateAndStoreQRCodes().then(() => console.log('Generate QR code for candidates is FINISHED'))
     });
