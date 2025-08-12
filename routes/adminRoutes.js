@@ -90,7 +90,7 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
                 'Subject Stream': 1,
                 'confirmed_papers': 1,
                 'joined_channels_confirmed': 1,
-                'participation_confirmed': 1,
+                'participation_status': 1,
             }
         }
     ).toArray();
