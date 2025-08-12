@@ -132,7 +132,7 @@ router.get('/candidate-by-nic/:nic', async (req, res) => {
 });
 
 router.post('/candidate-update-by-admin', async (req, res) => {
-    const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joined_channels_confirmed, participation_confirmed } = req.body;
+    const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joined_channels_confirmed, participation_status } = req.body;
     // if (!NIC) return res.status(400).json({ error: 'NIC required' });
 
     const client = new MongoClient(MONGODB_URI);
@@ -154,9 +154,7 @@ router.post('/candidate-update-by-admin', async (req, res) => {
         if (typeof joined_channels_confirmed === 'boolean') {
             updateFields['joined_channels_confirmed'] = joined_channels_confirmed;
         }
-        if(typeof participation_confirmed === 'boolean'){
-            updateFields['participation_confirmed'] = participation_confirmed;
-        }
+        if(participation_status) updateFields['participation_status'] = participation_status;
 
         const result = await collection.updateOne(
             { NIC },
