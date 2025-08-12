@@ -68,13 +68,15 @@ async function updateExamIndexNumbers() {
     const db = client.db(env.MONGODB_DB);
     const collection = db.collection(env.MONGODB_COLLECTION);
 
-    // Find all documents without an exam index number
+    // Find all documents (with Subject Stream) & (Preferred_Exam_Center_Confirmed = true) & (without index number)
     const candidates = await collection.find({
       NIC: { $exists: true, $ne: '' },
-      examIndexNumber: { $exists: false }
+      examIndexNumber: { $exists: false },
+        "Subject Stream": { $exists: true, $ne: null, $ne: '' },
+        Preferred_Exam_Center_Confirmed: true,
     }).toArray();
 
-    console.log(`Found ${candidates.length} candidates without exam index numbers`);
+    console.log(`Found ${candidates.length} candidates [with Subject Stream] & [center confirmed] & [without exam index numbers]`);
 
       // Keep track of used index numbers to avoid duplicates
       const usedIndexNumbers = new Set();
@@ -96,7 +98,8 @@ async function updateExamIndexNumbers() {
       try {
           let examIndexNumber = generateExamIndexNumber(
               candidate.NIC,
-              candidate['Preferred Exam Center'] // Using the exact field name from the sheet
+              candidate['Preferred Exam Center'],
+              candidate['Subject Stream']
           );
 
           // If this number is already used, try to find another one
