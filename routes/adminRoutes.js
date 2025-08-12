@@ -89,7 +89,8 @@ router.get('/dashboard', verifyAdminToken, async (req, res) => {
                 'Preferred_Exam_Center_Confirmed': 1,
                 'Subject Stream': 1,
                 'confirmed_papers': 1,
-                'joined_channels_confirmed': 1
+                'joined_channels_confirmed': 1,
+                'participation_confirmed': 1,
             }
         }
     ).toArray();
@@ -131,7 +132,7 @@ router.get('/candidate-by-nic/:nic', async (req, res) => {
 });
 
 router.post('/candidate-update-by-admin', async (req, res) => {
-    const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joinedChannelsConfirmed } = req.body;
+    const { NIC, EmailAddress, WhatsappNumber, SubjectStream, Preferred_Exam_Center_Confirmed, confirmed_papers, joined_channels_confirmed, participation_confirmed } = req.body;
     // if (!NIC) return res.status(400).json({ error: 'NIC required' });
 
     const client = new MongoClient(MONGODB_URI);
@@ -150,8 +151,11 @@ router.post('/candidate-update-by-admin', async (req, res) => {
         if (Array.isArray(confirmed_papers)) {
             updateFields['confirmed_papers'] = confirmed_papers;
         }
-        if (typeof joinedChannelsConfirmed === 'boolean') {
-            updateFields['joined_channels_confirmed'] = joinedChannelsConfirmed;
+        if (typeof joined_channels_confirmed === 'boolean') {
+            updateFields['joined_channels_confirmed'] = joined_channels_confirmed;
+        }
+        if(typeof participation_confirmed === 'boolean'){
+            updateFields['participation_confirmed'] = participation_confirmed;
         }
 
         const result = await collection.updateOne(
