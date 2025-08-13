@@ -26,7 +26,7 @@ async function generateAndStoreQRCodes() {
 
     for (const candidate of candidates) {
       if (!candidate.examIndexNumber) {
-        console.log(`Candidate ${candidate._id} has no examIndexNumber, skipping`);
+        // console.log(`Candidate ${candidate._id} has no examIndexNumber, skipping`);
         continue;
       }
 

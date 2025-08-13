@@ -68,15 +68,15 @@ async function updateExamIndexNumbers() {
     const db = client.db(env.MONGODB_DB);
     const collection = db.collection(env.MONGODB_COLLECTION);
 
-    // Find all documents (with Subject Stream) & (Preferred_Exam_Center_Confirmed = true) & (without index number)
+    // Find all documents (with Subject Stream) & (participation_status : "confirmed") & (without index number)
     const candidates = await collection.find({
       NIC: { $exists: true, $ne: '' },
       examIndexNumber: { $exists: false },
         "Subject Stream": { $exists: true, $ne: null, $ne: '' },
-        Preferred_Exam_Center_Confirmed: true,
+        participation_status: "confirmed",
     }).toArray();
 
-    console.log(`Found ${candidates.length} candidates [with Subject Stream] & [center confirmed] & [without exam index numbers]`);
+    console.log(`Found ${candidates.length} candidates [with Subject Stream] & [Participation confirmed] & [without exam index numbers]`);
 
       // Keep track of used index numbers to avoid duplicates
       const usedIndexNumbers = new Set();

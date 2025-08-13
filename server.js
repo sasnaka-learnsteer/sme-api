@@ -1,15 +1,18 @@
 // server.js
 const express = require('express');
-const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 
 const app = express();
-const server = http.createServer(app);
+const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
+const { initializeWebSocket, broadcastDashboardUpdate } = require('./services/dashboardWebSocket');
 
 // Connected clients
 const clients = new Set();
+
+// Initialize WebSocket once when server starts
+initializeWebSocket(server);
 
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
@@ -43,5 +46,8 @@ app.post('/api/webhook/new-registration', (req, res) => {
 
 const PORT = process.env.WEBSOCKET_PORT || 3002;
 server.listen(PORT, () => {
-    console.log(`server for WEBHOOK running on port ${PORT}`);
+    console.log(`server for WEBHOOK & WEBSOCKET running on port ${PORT}`);
 });
+
+
+module.exports = { broadcastDashboardUpdate };
