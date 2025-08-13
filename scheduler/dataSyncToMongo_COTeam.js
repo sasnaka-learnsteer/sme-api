@@ -4,7 +4,7 @@ const { MongoClient } = require('mongodb');
 const { getProvinceByDistrict } = require("../scheduler/adminDataSyncToMongo");
 
 async function fetchSheetData() {
-    console.log('Starting Candidates data fetch from GSheet...');
+    console.log('Starting Candidates data fetch from Candidate Outreach team - GSheet...');
 
     const auth = new google.auth.GoogleAuth({
         keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
@@ -12,10 +12,10 @@ async function fetchSheetData() {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const range = 'Form_Responses_1!A:Z';
+    const range = 'candidates_with_no_assignment!A:Z';
 
     const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: env.SHEET_ID,
+        spreadsheetId: env.SHEET_ID_CO_TEAM,
         range,
     });
 
@@ -48,15 +48,15 @@ async function fetchSheetData() {
         return doc;
     });
 
-    console.log(`[Candidates data fetch] Processed ${data.length} data rows`);
+    console.log(`[CO team : Candidates data fetch] Processed ${data.length} data rows`);
     return data;
 }
 
 async function processDataForMongo(docs) {
-    console.log('⚙️[Candidates data fetch] Processing data for MongoDB...');
+    console.log('⚙️[CO team : Candidates data fetch] Processing data for MongoDB...');
 
     if (!docs || docs.length === 0) {
-        console.log('❌[Candidates data fetch] No documents to process');
+        console.log('❌[CO team : Candidates data fetch] No documents to process');
         return [];
     }
 
@@ -89,9 +89,9 @@ async function processDataForMongo(docs) {
         validCount++;
     }
 
-    console.log(`✅[Candidates] Valid records: ${validCount}, Skipped (no NIC): ${skippedCount}`);
-    console.log(`🔄[Candidates] Duplicate NICs found: ${duplicateCount} duplicates`);
-    console.log(`📋[Candidates] Unique NICs after deduplication: ${nicMap.size}`);
+    console.log(`✅[CO team : Candidates] Valid records: ${validCount}, Skipped (no NIC): ${skippedCount}`);
+    console.log(`🔄[CO team : Candidates] Duplicate NICs found: ${duplicateCount} duplicates`);
+    console.log(`📋[CO team : Candidates] Unique NICs after deduplication: ${nicMap.size}`);
 
     // Show some examples of duplicate NICs
     // if (duplicateTracker.size > 0) {
@@ -139,6 +139,9 @@ async function insertIntoMongo(docs) {
                 // Map district to province and add Province key
                 doc.Province = getProvinceByDistrict(doc.District);
 
+                // Transform data according to business rules
+                transformDocumentData(doc);
+
                 // Check if document with same NIC exists
                 const existingDoc = await collection.findOne({ NIC: doc.NIC });
 
@@ -180,7 +183,7 @@ async function insertIntoMongo(docs) {
         }
 
         console.log(`
-Registration processing complete:
+COTeam Data >> Registration processing complete:
 - Updated: ${updatedCount} documents
 - Inserted: ${insertedCount} new documents
 - Skipped: ${skippedCount} documents
@@ -191,59 +194,81 @@ Registration processing complete:
     }
 }
 
-async function syncData() {
-    console.log(`Running candidates data sync to MONGO at ${new Date().toISOString()}`);
+function transformDocumentData(doc) {
+    // List of columns to skip
+    const columnsToSkip = [
+        '_id', 'Timestamp', 'Full Name',
+        'School', 'AL Batch', 'Email Address',
+        'Preferred Exam Center', 'Whatsapp Number'
+    ];
+
+    // Remove skipped columns from the document
+    columnsToSkip.forEach(column => {
+        delete doc[column];
+    });
+
+    // Map Subject Stream directly
+    if (doc['Subject Stream']) {
+        doc['Subject Stream'] = doc['Subject Stream'];
+    }
+
+    // Map Attending Status to participation_status
+    if (doc['Attending Status']) {
+        const attendingStatus = doc['Attending Status'].trim();
+        if (attendingStatus === 'Attending') {
+            doc['participation_status'] = 'confirmed';
+        } else if (attendingStatus === 'Not Attending') {
+            doc['participation_status'] = 'rejected';
+        }
+        delete doc['Attending Status'];
+    }
+
+    // Map Contact Status to participation_status (overrides attending status if unable to contact)
+    if (doc['Contact Status']) {
+        const contactStatus = doc['Contact Status'].trim();
+        if (contactStatus === 'Unable to Contact') {
+            doc['participation_status'] = 'not_reachable';
+        }
+        delete doc['Contact Status'];
+    }
+
+    // Initialize confirmed_papers array
+    doc['confirmed_papers'] =  doc['confirmed_papers'] || [];
+
+    // Add papers based on subject preferences
+    if (doc['Biology'] && doc['Biology'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Biology I', 'Biology II');
+    }
+    delete doc['Biology'];
+
+    if (doc['Combined Maths'] && doc['Combined Maths'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Combined Maths I', 'Combined Maths II');
+    }
+    delete doc['Combined Maths'];
+
+    if (doc['Physics'] && doc['Physics'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Physics I', 'Physics II');
+    }
+    delete doc['Physics'];
+
+    if (doc['Chemistry'] && doc['Chemistry'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Chemistry I', 'Chemistry II');
+    }
+    delete doc['Chemistry'];
+
+    // Remove duplicates from confirmed_papers array
+    doc['confirmed_papers'] = [...new Set(doc['confirmed_papers'])];
+}
+
+async function syncCOTeamData() {
+    console.log(`Running candidates data sync From COTeam sheet to MONGO at ${new Date().toISOString()}`);
     try {
         const data = await fetchSheetData();
         await insertIntoMongo(data);
-        console.log(`candidates data sync to MONGO completed at ${new Date().toISOString()}`);
+        console.log(`candidates data sync From COTeam sheet to MONGO completed at ${new Date().toISOString()}`);
     } catch (error) {
-        console.error('Error during data sync to MONGO:', error);
+        console.error('Error during data sync From COTeam sheet to MONGO:', error);
     }
 }
 
-async function cleanCollection() {
-    console.log(`Starting registrations collection cleanup at ${new Date().toISOString()}`);
-    const client = new MongoClient(env.MONGODB_URI);
-
-    try {
-        await client.connect();
-        const db = client.db(env.MONGODB_DB);
-        const collection = db.collection(env.MONGODB_COLLECTION);
-
-        // Get all distinct NICs
-        const distinctNics = await collection.distinct('NIC', { NIC: { $exists: true, $ne: '' } });
-        console.log(`[registrations collection cleanup] Found ${distinctNics.length} distinct NICs in collection`);
-
-        let removedCount = 0;
-
-        // For each NIC, find all documents and keep only the latest one
-        for (const nic of distinctNics) {
-            // Find all documents with this NIC, sorted by Timestamp (descending)
-            const docs = await collection.find({ NIC: nic })
-                .sort({ Timestamp: -1 })
-                .toArray();
-
-            // If more than one document exists for this NIC
-            if (docs.length > 1) {
-                // Keep the first one (latest by timestamp) and delete the rest
-                const docsToDelete = docs.slice(1);
-                const deleteIds = docsToDelete.map(doc => doc._id);
-
-                const deleteResult = await collection.deleteMany({
-                    _id: { $in: deleteIds }
-                });
-
-                removedCount += deleteResult.deletedCount;
-            }
-        }
-
-        console.log(`[registrations] Cleanup complete: Removed ${removedCount} duplicate documents`);
-    } catch (error) {
-        console.error('Error during registrations collection cleanup:', error);
-    } finally {
-        await client.close();
-    }
-}
-
-module.exports = { syncData, cleanCollection };
+module.exports = { syncCOTeamData };
