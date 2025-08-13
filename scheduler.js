@@ -5,6 +5,7 @@ const { updateExamIndexNumbers } = require('./services/indexNumberGenerator');
 const { assignCandidatesToPanelMembers } = require('./utils/candidateAssignment');
 const {cleanAdminCollection, syncAdminData} = require("./scheduler/adminDataSyncToMongo");
 const {generateAndStoreQRCodes} = require("./routes/qrCodeRoutes");
+const {syncCOTeamData} = require("./scheduler/dataSyncToMongo_COTeam");
 
 const initScheduler = () => {
     console.log('Initializing scheduler...');
@@ -62,20 +63,31 @@ const initScheduler = () => {
     cron.schedule('0 * * * *', async () => {
         console.log('Starting hourly scheduled tasks..', new Date().toISOString());
 
-        console.log('[1] Running hourly scheduled task: syncData() & syncAdminData()', new Date().toISOString());
+        console.log('[1] Running hourly scheduled task: syncData(), syncCOTeamData & syncAdminData()', new Date().toISOString());
         syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
+        syncCOTeamData().then(() => console.log('Completed hourly scheduled task: syncCOTeamData()' , new Date().toISOString()))
         syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
+    });
+
+    // Every 2 hr tasks
+    cron.schedule('0 */2 * * *', async () => {
+        console.log('Starting every 2 hour scheduled tasks..', new Date().toISOString());
 
         try {
-            console.log('[2] Running hourly scheduled task: index number generation & update', new Date().toISOString());
+            console.log('Running every 2 hour scheduled task: index number generation & update', new Date().toISOString());
             await updateExamIndexNumbers();
-            console.log('Completed hourly scheduled task: index number generation & update', new Date().toISOString());
+            console.log('Completed every 2 hour scheduled task: index number generation & update', new Date().toISOString());
         } catch (error) {
             console.error('Scheduler error:', error);
         }
+    });
 
-        console.log('[3] Running hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
-        generateAndStoreQRCodes().then(() => console.log('Completed hourly scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
+    // Every 3 hr tasks
+    cron.schedule('0 */3 * * *', async () => {
+        console.log('Starting every 3 hour scheduled tasks..', new Date().toISOString());
+
+        console.log('[3] Running every 3 hour scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
+        generateAndStoreQRCodes().then(() => console.log('Completed every 3 hour scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
     });
 
     console.log('[CRON JOB] Data sync to MONGO is started. Will run every 1 hour.');
@@ -89,6 +101,8 @@ const initScheduler = () => {
     console.log('syncData() is STARTED [ONE time RUN at START]');
     syncData().then(() => {
         console.log('syncData() is FINISHED. Starting other jobs...')
+        console.log('syncDataCOTeam() is STARTED [ONE time RUN at START]');
+        syncCOTeamData().then(() => console.log('syncCOTeamData() is FINISHED'))
         syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
 
         console.log('STARTING Index number generation [ONE time RUN at START]');

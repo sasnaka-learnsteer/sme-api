@@ -120,8 +120,8 @@ async function processAdminDataForMongo(docs) {
 function getProvinceByDistrict(district) {
     const mapping = {
         Western: ['Colombo', 'Gampaha', 'Kalutara'],
-        Central: ['Matale', 'Kandy', 'Nuwaraeliya'],
-        Southern: ['Galle', 'Matara', 'Hambanthota'],
+        Central: ['Matale', 'Kandy', 'Nuwara Eliya'],
+        Southern: ['Galle', 'Matara', 'Hambantota'],
     };
 
     const cleanDistrict = (district || '').toLowerCase().trim();
@@ -197,7 +197,7 @@ async function insertAdminIntoMongo(docs) {
             }
         }
         console.log(`
-Registration processing complete:
+Admin Data >> Registration processing complete:
 - Updated: ${updatedCount} documents
 - Inserted: ${insertedCount} new documents
 - Skipped: ${skippedCount} documents
