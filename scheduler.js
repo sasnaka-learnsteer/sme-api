@@ -6,8 +6,10 @@ const { assignCandidatesToPanelMembers } = require('./utils/candidateAssignment'
 const {cleanAdminCollection, syncAdminData} = require("./scheduler/adminDataSyncToMongo");
 const {generateAndStoreQRCodes} = require("./routes/qrCodeRoutes");
 const {syncCOTeamData} = require("./scheduler/dataSyncToMongo_COTeam");
+const {RegisteredDataScheduler} = require("./scheduler/write_to_google_sheet");
 
-const initScheduler = () => {
+
+const initScheduler = async () => {
     console.log('Initializing scheduler...');
 
     // Daily task at midnight
@@ -64,9 +66,11 @@ const initScheduler = () => {
         console.log('Starting hourly scheduled tasks..', new Date().toISOString());
 
         console.log('[1] Running hourly scheduled task: syncData(), syncCOTeamData & syncAdminData()', new Date().toISOString());
-        syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
-        syncCOTeamData().then(() => console.log('Completed hourly scheduled task: syncCOTeamData()' , new Date().toISOString()))
-        syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
+        await syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
+        await syncCOTeamData().then(() => console.log('Completed hourly scheduled task: syncCOTeamData()', new Date().toISOString()))
+        await syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
+        // console.log('[2] Running hourly scheduled task: Write Candidate Data to sheet', new Date().toISOString());
+        // await dataScheduler.processDocumentsToWrite();
     });
 
     // Every 2 hr tasks
@@ -87,11 +91,12 @@ const initScheduler = () => {
         console.log('Starting every 3 hour scheduled tasks..', new Date().toISOString());
 
         console.log('[3] Running every 3 hour scheduled task: generateAndStoreQRCodes()', new Date().toISOString());
-        generateAndStoreQRCodes().then(() => console.log('Completed every 3 hour scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
+        await generateAndStoreQRCodes().then(() => console.log('Completed every 3 hour scheduled task: generateAndStoreQRCodes()', new Date().toISOString()))
     });
 
     console.log('[CRON JOB] Data sync to MONGO is started. Will run every 1 hour.');
-    console.log('[CRON JOB] Generate QR code for candidates is started. Will run every 1 hour.');
+    console.log('[CRON JOB] index number generation & update is started. Will run every 2 hours.');
+    console.log('[CRON JOB] Generate QR code for candidates is started. Will run every 3 hours.');
 
     // Run at startup
     console.log('cleanCollection() & cleanAdminCollection() is STARTED [ONE time RUN at START]');
@@ -99,14 +104,17 @@ const initScheduler = () => {
     cleanAdminCollection().then(() => console.log('cleanAdminCollection() is FINISHED'))
 
     console.log('syncData() is STARTED [ONE time RUN at START]');
-    syncData().then(() => {
+    syncData().then(async () => {
         console.log('syncData() is FINISHED. Starting other jobs...')
         console.log('syncDataCOTeam() is STARTED [ONE time RUN at START]');
-        syncCOTeamData().then(() => console.log('syncCOTeamData() is FINISHED'))
-        syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
+        await syncCOTeamData().then(() => console.log('syncCOTeamData() is FINISHED'))
+        await syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
+
+        // console.log('Write Candidate Data to sheet is STARTED [ONE time RUN at START]');
+        // await dataScheduler.processDocumentsToWrite();
 
         console.log('STARTING Index number generation [ONE time RUN at START]');
-        updateExamIndexNumbers().then(() => console.log('FINISHED Index number generation [ONE time RUN at START]'));
+        await updateExamIndexNumbers().then(() => console.log('FINISHED Index number generation [ONE time RUN at START]'));
 
         console.log('Assign Candidates to Panel Members [ONE time RUN at START] - TURNED OFF now');
         // console.log('Assign Candidates to Panel Members is STARTED [ONE time RUN at START]');
@@ -114,7 +122,7 @@ const initScheduler = () => {
         // console.log('Assign Candidates to Panel Members is FINISHED');
 
         console.log('Generate QR code for candidates is STARTED [ONE time RUN at START]');
-        generateAndStoreQRCodes().then(() => console.log('Generate QR code for candidates is FINISHED'))
+        await generateAndStoreQRCodes().then(() => console.log('Generate QR code for candidates is FINISHED'))
     });
 
     console.log('Scheduler initialized successfully');
