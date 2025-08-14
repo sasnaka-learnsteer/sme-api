@@ -26,17 +26,25 @@ async function generateAndStoreQRCodes() {
 
     for (const candidate of candidates) {
       if (!candidate.examIndexNumber) {
-        // console.log(`Candidate ${candidate._id} has no examIndexNumber, skipping`);
         continue;
       }
 
-      // Generate QR code as data URL containing the examIndexNumber
-      const qrCodeDataUrl = await qrcode.toDataURL(candidate.examIndexNumber);
+        // Create a URL with the examIndexNumber as a query parameter
+        const qrUrl = `https://sme.sasnaka.org/mysme/login?code=${candidate.examIndexNumber}`;
+
+
+        // Generate QR code as data URL containing the examIndexNumber
+      const qrCodeDataUrl = await qrcode.toDataURL(qrUrl);
 
       // Update the candidate document with the QR code
       await collection.updateOne(
         { _id: candidate._id },
-        { $set: { qrCode: qrCodeDataUrl } }
+        { $set: {
+                qrCode: qrCodeDataUrl,
+                qrCodeData: qrUrl,
+                qrCodeGeneratedAt: new Date()
+        }
+        }
       );
 
       console.log(`Generated QR code for candidate with examIndexNumber: ${candidate.examIndexNumber}`);
