@@ -16,7 +16,7 @@ app.use(express.json());
 // Routes
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
-// app.use('/api/mysme', require('./routes/MySMERoutes'));
+app.use('/api/candidate', require('./routes/candidateRoutes'));
 app.use('/api/qrcode', require('./routes/qrCodeRoutes'));
 
 // Serve static files from the React app in production
