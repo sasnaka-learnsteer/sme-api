@@ -105,17 +105,56 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     const db = client.db(dbName);
     const collection = db.collection(collectionName);
 
-    const candidate = await collection.findOne({ examIndexNumber });
+      // Find the candidate by exam index number
+      const candidate = await collection.findOne({ examIndexNumber });
+      if (!candidate) {
+          return res.status(404).json({
+              success: false,
+              message: 'Invalid QR code or candidate not found'
+          });
+      }
 
-    if (!candidate) {
-      return res.status(404).json({ error: 'Invalid QR code' });
-    }
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date()
+          .toLocaleString('en-US', { timeZone: 'Asia/Colombo' })
+          .split(',')[0]
+          .split('/')
+          .map(part => part.padStart(2, '0'))
+          .reverse()
+          .join('-');
 
-    // Return only minimal required information
-    res.status(200).json({
-      examIndexNumber: candidate.examIndexNumber,
-      verified: true
-    });
+      // Get or initialize the attended_days array
+      const attendedDays = candidate.attended_days || [];
+
+      // Check if candidate has already been marked for today
+      if (attendedDays.includes(today)) {
+          return res.status(200).json({
+              success: true,
+              message: 'Attendance is already Marked for this Candidate',
+              warning: true,
+              examIndexNumber: examIndexNumber,
+              attendedDays: attendedDays
+          });
+      }
+
+      // Add today to the attended_days array
+      const updatedAttendedDays = [...attendedDays, today];
+
+      // Update the candidate's attendance record
+      await collection.updateOne(
+          { examIndexNumber },
+          { $set: { attended_days: updatedAttendedDays } }
+      );
+
+      // Return the attendance confirmation
+      return res.status(200).json({
+          success: true,
+          verified: true,
+          message: 'Marked Attendance',
+          warning: false,
+          examIndexNumber: examIndexNumber,
+          attendedDays: updatedAttendedDays
+      });
   } catch (error) {
     console.error('Error verifying QR code:', error);
     res.status(500).json({ error: 'Internal server error' });
