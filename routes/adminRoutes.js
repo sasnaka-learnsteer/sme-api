@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 const {MONGODB_COLLECTION, MONGODB_DB, MONGODB_URI} = require("../config/env");
 require('dotenv').config();
 
@@ -25,30 +25,105 @@ const verifyAdminToken = (req, res, next) => {
 
 // Admin login route
 router.post('/login', async (req, res) => {
-  const { panelId } = req.body;
-  const client = new MongoClient(process.env.MONGODB_URI);
+    const client = new MongoClient(process.env.MONGODB_URI);
 
-  try {
-    await client.connect();
-    const db = client.db(process.env.MONGODB_DB);
-    const adminCollection = db.collection(process.env.ADMIN_MONGODB_COLLECTION);
+    try {
+        const { panelId, deviceInfo } = req.body;
 
-    const panelMember = await adminCollection.findOne({ panelId });
+        // Validate panel ID format
+        if (!panelId || !/^\d{7}$/.test(panelId)) {
+            return res.status(400).json({ message: 'Invalid panel ID format' });
+        }
 
-    if (!panelMember) {
-      return res.status(401).json({ message: 'Invalid panel ID' });
-    }
+        // List of scanner panel IDs (store in database in production)
+        const scannerPanelIds = [
+        '1335509', '1467182', '1882474', '1454036', '1800377',
+        '1960294', '1826998', '1932447', '1184463', '1992877',
+        '2211285', '2303038', '2638462', '2018776', '2095143',
+        '2378211', '2391207', '2479841', '2712735', '2642690',
+        '3805975', '3980726', '3718182', '3821378', '3865612',
+        '3031460', '3446413', '3764464', '3980284', '3117590'
+        ];
 
-    // Generate JWT token
-    const token = jwt.sign({ panelId: panelMember.panelId }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        await client.connect();
+        const db = client.db(process.env.MONGODB_DB);
+        const adminCollection = db.collection(process.env.ADMIN_MONGODB_COLLECTION);
 
-    res.status(200).json({ token, message: 'Login successful' });
+        const panelMember = await adminCollection.findOne({ panelId });
+        const isScanner = scannerPanelIds.includes(panelId);
+
+        if (!panelMember && !isScanner) {
+            return res.status(401).json({ message: 'Invalid panel ID' });
+        }
+
+        // Check for active sessions
+        const activeSession = await db.collection(process.env.ADMIN_SESSION_MONGODB_COLLECTION).findOne({ panelId: String(panelId) });
+
+        if (activeSession && activeSession.deviceId !== deviceInfo.deviceId) {
+            return res.status(403).json({
+                message: 'Login Aborted! Your Account is already logged in on another device'
+            });
+        }
+
+        // Create or update session
+        await db.collection(process.env.ADMIN_SESSION_MONGODB_COLLECTION).updateOne(
+            { panelId },
+            {
+                $set: {
+                    panelId,
+                    deviceId: deviceInfo.deviceId,
+                    userAgent: deviceInfo.userAgent,
+                    lastActive: new Date(),
+                    role: isScanner ? 'scanner' : 'admin'
+                }
+            },
+            { upsert: true }
+        );
+
+        // Generate JWT token
+        const token = jwt.sign(
+            {
+                panelId,
+                role: isScanner ? 'scanner' : 'admin',
+                deviceId: deviceInfo.deviceId
+            }, process.env.JWT_SECRET, { expiresIn: '6h' });
+
+        // Return token and role
+        return res.status(200).json({
+            token,
+            role: isScanner ? 'scanner' : 'admin',
+            message: 'Login successful'
+        });
+
   } catch (error) {
     console.error('Admin login error:', error);
     res.status(500).json({ message: 'Server error' });
   } finally {
     await client.close();
   }
+});
+
+// Add a logout endpoint
+router.post('/logout', verifyAdminToken, async (req, res) => {
+    const client = new MongoClient(process.env.MONGODB_URI);
+    try {
+        const panelId = req.panelId;
+
+        await client.connect();
+        const db = client.db(process.env.MONGODB_DB);
+
+        // Remove active session
+        await db.collection(process.env.ADMIN_SESSION_MONGODB_COLLECTION).deleteOne({ panelId: String(panelId) });
+
+        return res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        return res.status(500).json({ message: 'Server error' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
+    }
 });
 
 // Dashboard route - fetch assigned candidates
