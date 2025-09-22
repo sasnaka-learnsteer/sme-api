@@ -26,6 +26,9 @@ function generateExamIndexNumber(nic, examCenter, stream) {
         case 'galle':
             firstDigit = '3';
             break;
+        case 'ampara':
+            firstDigit = '4';
+            break;
         default:
             firstDigit = '9'; // Default for unknown exam centers
     }

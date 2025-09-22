@@ -122,6 +122,7 @@ function getProvinceByDistrict(district) {
         Western: ['Colombo', 'Gampaha', 'Kalutara'],
         Central: ['Matale', 'Kandy', 'Nuwara Eliya'],
         Southern: ['Galle', 'Matara', 'Hambantota'],
+        Eastern: ['Ampara']
     };
 
     const cleanDistrict = (district || '').toLowerCase().trim();
