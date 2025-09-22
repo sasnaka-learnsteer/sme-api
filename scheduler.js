@@ -65,9 +65,9 @@ const initScheduler = async () => {
     cron.schedule('0 * * * *', async () => {
         console.log('Starting hourly scheduled tasks..', new Date().toISOString());
 
-        console.log('[1] Running hourly scheduled task: syncData(), syncCOTeamData & syncAdminData()', new Date().toISOString());
+        console.log('[1] Running hourly scheduled task: syncData() & syncAdminData()', new Date().toISOString());
         await syncData().then(() => console.log('Completed hourly scheduled task: syncData()', new Date().toISOString()));
-        await syncCOTeamData().then(() => console.log('Completed hourly scheduled task: syncCOTeamData()', new Date().toISOString()))
+        // await syncCOTeamData().then(() => console.log('Completed hourly scheduled task: syncCOTeamData()', new Date().toISOString()))
         await syncAdminData().then(() => console.log('Completed hourly scheduled task: syncAdminData()', new Date().toISOString()));
         // console.log('[2] Running hourly scheduled task: Write Candidate Data to sheet', new Date().toISOString());
         // await dataScheduler.processDocumentsToWrite();
@@ -106,8 +106,8 @@ const initScheduler = async () => {
     console.log('syncData() is STARTED [ONE time RUN at START]');
     syncData().then(async () => {
         console.log('syncData() is FINISHED. Starting other jobs...')
-        console.log('syncDataCOTeam() is STARTED [ONE time RUN at START]');
-        await syncCOTeamData().then(() => console.log('syncCOTeamData() is FINISHED'))
+        // console.log('syncDataCOTeam() is STARTED [ONE time RUN at START]');
+        // await syncCOTeamData().then(() => console.log('syncCOTeamData() is FINISHED'))
         await syncAdminData().then(() => console.log('syncAdminData() is FINISHED'))
 
         // console.log('Write Candidate Data to sheet is STARTED [ONE time RUN at START]');

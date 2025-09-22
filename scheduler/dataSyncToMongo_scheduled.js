@@ -14,8 +14,13 @@ async function fetchSheetData() {
     const sheets = google.sheets({ version: 'v4', auth });
     const range = 'Form_Responses_1!A:Z';
 
+    // const res = await sheets.spreadsheets.values.get({
+    //     spreadsheetId: env.SHEET_ID,
+    //     range,
+    // });
+
     const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: env.SHEET_ID,
+        spreadsheetId: env.SHEET_ID_AMPARA,
         range,
     });
 
@@ -139,6 +144,9 @@ async function insertIntoMongo(docs) {
                 // Map district to province and add Province key
                 doc.Province = getProvinceByDistrict(doc.District);
 
+                // Transform data according to business rules
+                transformDocumentDataAmpara(doc);
+
                 // Check if document with same NIC exists
                 const existingDoc = await collection.findOne({ NIC: doc.NIC });
 
@@ -244,6 +252,61 @@ async function cleanCollection() {
     } finally {
         await client.close();
     }
+}
+
+function transformDocumentDataAmpara(doc) {
+
+    // Map Subject Stream directly
+    if (doc['Subject Stream']) {
+        doc['Subject Stream'] = doc['Subject Stream'];
+    }
+
+    // Map Attending Status to participation_status
+    if (doc['Attending Status']) {
+        const attendingStatus = doc['Attending Status'].trim();
+        if (attendingStatus === 'Attending') {
+            doc['participation_status'] = 'confirmed';
+        } else if (attendingStatus === 'Not Attending') {
+            doc['participation_status'] = 'rejected';
+        }
+        delete doc['Attending Status'];
+    }
+
+    // Map Contact Status to participation_status (overrides attending status if unable to contact)
+    if (doc['Contact Status']) {
+        const contactStatus = doc['Contact Status'].trim();
+        if (contactStatus === 'Unable to Contact') {
+            doc['participation_status'] = 'not_reachable';
+        }
+        delete doc['Contact Status'];
+    }
+
+    // Initialize confirmed_papers array
+    doc['confirmed_papers'] =  doc['confirmed_papers'] || [];
+
+    // Add papers based on subject preferences
+    if (doc['Biology'] && doc['Biology'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Biology I', 'Biology II');
+    }
+    delete doc['Biology'];
+
+    if (doc['Combined Maths'] && doc['Combined Maths'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Combined Maths I', 'Combined Maths II');
+    }
+    delete doc['Combined Maths'];
+
+    if (doc['Physics'] && doc['Physics'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Physics I', 'Physics II');
+    }
+    delete doc['Physics'];
+
+    if (doc['Chemistry'] && doc['Chemistry'].trim().toLowerCase() === 'yes') {
+        doc['confirmed_papers'].push('Chemistry I', 'Chemistry II');
+    }
+    delete doc['Chemistry'];
+
+    // Remove duplicates from confirmed_papers array
+    doc['confirmed_papers'] = [...new Set(doc['confirmed_papers'])];
 }
 
 module.exports = { syncData, cleanCollection };

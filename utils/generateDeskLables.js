@@ -25,7 +25,7 @@ async function generateDeskLabels() {
 
     // Query candidates with Galle as preferred center, not rejected
     const candidates = await collection.find({
-      "Preferred Exam Center": "Colombo",
+      "Preferred Exam Center": "Ampara",
         "Subject Stream":"Physical Science",
         "participation_status": "confirmed",
         // "participation_status": { $ne: "rejected" },
@@ -49,7 +49,7 @@ async function generateDeskLabels() {
     });
 
     // Pipe output to file
-    const outputPath = path.join(__dirname, '../output/desk_labels_colombo_maths_confirmed.pdf');
+    const outputPath = path.join(__dirname, '../output/desk_labels_ampara_maths_confirmed.pdf');
     await ensureDirectoryExists(path.dirname(outputPath));
     stream = fs.createWriteStream(outputPath);
     doc.pipe(stream);

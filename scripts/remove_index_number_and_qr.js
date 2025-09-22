@@ -10,7 +10,12 @@ async function removeIndexNumberandQR() {
         const collection = db.collection(env.MONGODB_COLLECTION);
 
         const result = await collection.updateMany(
-            {},
+            {
+                examIndexNumber: {
+                    $exists: true,
+                    $regex: /^9/
+                }
+                },
             { $unset: { examIndexNumber: "", qrCode: "" } }
         );
 
@@ -22,4 +27,4 @@ async function removeIndexNumberandQR() {
     }
 }
 
-removeIndexNumberandQR().then(() => console.log(`Done running the script for Removing all index number and qr values from candidates`));
+removeIndexNumberandQR().then(() => console.log(`Done running the script for Removing index number and qr values from candidates with index numbers starting with 9`));
