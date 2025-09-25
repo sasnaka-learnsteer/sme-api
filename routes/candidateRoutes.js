@@ -192,7 +192,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
             { projection: {
                     NIC: 1,
                     "Full Name": 1,
-                    "School": 1,
+                    "School ": 1,
                     "Subject Stream": 1,
                     confirmed_papers: 1,
                     qrCodeData: 1,
