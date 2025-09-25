@@ -189,7 +189,20 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
         const candidate = await collection.findOne(
             { _id: new ObjectId(req.user.id) },
-            { projection: { password: 0 } } // Exclude password from result
+            { projection: {
+                    NIC: 1,
+                    "Full Name": 1,
+                    "School": 1,
+                    "Subject Stream": 1,
+                    confirmed_papers: 1,
+                    qrCodeData: 1,
+                    "Preferred Exam Center": 1,
+                    examIndexNumber: 1,
+                    qrCode: 1,
+                    attended_papers: 1,
+                    attended_days: 1,
+                    _id: 1
+                }  }
         );
 
         await client.close();
