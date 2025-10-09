@@ -5,10 +5,18 @@ const dotenv = require('dotenv');
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+// Handle Google Service Account Key for both local and Heroku deployment
+let googleServiceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+// If running on Heroku, use the JSON string from environment variable
+if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    googleServiceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+}
+
 // Export the environment variables
 module.exports = {
     // Google Sheets Configuration
-    GOOGLE_SERVICE_ACCOUNT_KEY: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+    GOOGLE_SERVICE_ACCOUNT_KEY: googleServiceAccountKey,
     SHEET_ID: process.env.SHEET_ID,
     SHEET_ID_AMPARA: process.env.SHEET_ID_AMPARA,
     SHEET_ID_MATARA: process.env.SHEET_ID_MATARA,
@@ -17,14 +25,17 @@ module.exports = {
     RESULTS_SHEET_ID: process.env.RESULTS_SHEET_ID,
 
     // MongoDB Configuration
-    MONGODB_URI: process.env.MONGODB_URI ,
-    MONGODB_DB: process.env.MONGODB_DB ,
-    MONGODB_COLLECTION: process.env.MONGODB_COLLECTION ,
-    ADMIN_MONGODB_COLLECTION: process.env.ADMIN_MONGODB_COLLECTION ,
-    EXAMS_MONGO_COLLECTION: process.env.EXAMS_MONGO_COLLECTION ,
-    MYSME_MONGO_COLLECTION: process.env.MYSME_MONGO_COLLECTION ,
+    MONGODB_URI: process.env.MONGODB_URI,
+    MONGODB_DB: process.env.MONGODB_DB,
+    MONGODB_COLLECTION: process.env.MONGODB_COLLECTION,
+    ADMIN_MONGODB_COLLECTION: process.env.ADMIN_MONGODB_COLLECTION,
+    EXAMS_MONGO_COLLECTION: process.env.EXAMS_MONGO_COLLECTION,
+    MYSME_MONGO_COLLECTION: process.env.MYSME_MONGO_COLLECTION,
 
-    // Other configurations
-    PORT: process.env.PORT || 3001,
-    JWT_SECRET: process.env.JWT_SECRET
+    // JWT Configuration
+    JWT_SECRET: process.env.JWT_SECRET,
+
+    // Node Environment
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    PORT: process.env.PORT || 3001
 };
