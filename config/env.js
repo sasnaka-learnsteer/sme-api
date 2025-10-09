@@ -11,6 +11,7 @@ module.exports = {
     GOOGLE_SERVICE_ACCOUNT_KEY: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
     SHEET_ID: process.env.SHEET_ID,
     SHEET_ID_AMPARA: process.env.SHEET_ID_AMPARA,
+    SHEET_ID_MATARA: process.env.SHEET_ID_MATARA,
     ADMIN_SHEET_ID: process.env.ADMIN_SHEET_ID,
     SHEET_ID_CO_TEAM: process.env.SHEET_ID_CO_TEAM,
 
