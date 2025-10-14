@@ -12,7 +12,7 @@ async function addSubjectsToConfirmedPapers() {
         // For Physical Science stream
         const physicalScienceResult = await collection.updateMany(
             {
-                "Preferred Exam Center": "Ampara",
+                "Preferred Exam Center": "Matara",
                 "Subject Stream": "Physical Science"
             },
             {
@@ -34,7 +34,7 @@ async function addSubjectsToConfirmedPapers() {
         // For Bio Science stream
         const bioScienceResult = await collection.updateMany(
             {
-                "Preferred Exam Center": "Ampara",
+                "Preferred Exam Center": "Matara",
                 "Subject Stream": "Bio Science"
             },
             {
@@ -62,4 +62,4 @@ async function addSubjectsToConfirmedPapers() {
     }
 }
 
-addSubjectsToConfirmedPapers().then(() => console.log('Done adding subjects to confirmed_papers array for Ampara candidates.'));
+addSubjectsToConfirmedPapers().then(() => console.log('Done adding subjects to confirmed_papers array for Matara candidates.'));

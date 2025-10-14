@@ -1,10 +1,14 @@
 const env = require('../config/env');
 const { google } = require('googleapis');
-const { MongoClient } = require('mongodb');
+const mongoPool = require('../services/mongoConnectionPool');
 const { getProvinceByDistrict } = require("../scheduler/adminDataSyncToMongo");
 
+// Cache to avoid unnecessary API calls
+let sheetsDataCache = new Map();
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes cache for sheets data
+
 async function fetchSheetData() {
-    console.log('Starting Candidates data fetch from GSheet...');
+    console.log('Starting Candidates data fetch from multiple GSheets...');
 
     const auth = new google.auth.GoogleAuth({
         keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
@@ -12,49 +16,83 @@ async function fetchSheetData() {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    const range = 'Form_Responses_1!A:Z';
+    const range = 'Form_Responses_2!A:Z';
 
-    // const res = await sheets.spreadsheets.values.get({
-    //     spreadsheetId: env.SHEET_ID,
-    //     range,
-    // });
+    // List of spreadsheet IDs to fetch data from
+    const spreadsheetIds = [
+        // env.SHEET_ID,
+        // env.SHEET_ID_AMPARA,
+        env.SHEET_ID_MATARA
+    ];
 
-    const res = await sheets.spreadsheets.values.get({
-        spreadsheetId: env.SHEET_ID_AMPARA,
-        range,
-    });
+    let allData = []
+    for (const spreadsheetId of spreadsheetIds) {
+        try {
+            // Check cache first
+            const cacheKey = `${spreadsheetId}-${range}`;
+            const cachedData = sheetsDataCache.get(cacheKey);
 
-    const rows = res.data.values;
-    if (!rows || rows.length === 0) {
-        console.log('No data found.');
-        return [];
+            if (cachedData && (Date.now() - cachedData.timestamp) < CACHE_DURATION) {
+                console.log(`Using cached data for spreadsheet: ${spreadsheetId}`);
+                allData = [...allData, ...cachedData.data];
+                continue;
+            }
+
+            console.log(`Fetching fresh data from spreadsheet: ${spreadsheetId}`);
+
+            const res = await sheets.spreadsheets.values.get({
+                spreadsheetId,
+                range,
+            });
+
+            const rows = res.data.values;
+            if (!rows || rows.length === 0) {
+                console.log(`No data found in spreadsheet: ${spreadsheetId}`);
+                continue;
+            }
+
+            const headers = rows[0];
+
+            // Find the NIC column (handle spaces and case variations)
+            const nicColumn = headers.find(header =>
+                header && header.toString().trim().toUpperCase().includes('NIC')
+            );
+
+            console.log(`Found NIC column in spreadsheet ${spreadsheetId}: "${nicColumn}"`);
+
+            // Process data from this sheet
+            const sheetData = rows.slice(1).map(row => {
+                let doc = {};
+                headers.forEach((header, i) => {
+                    doc[header] = row[i] || '';
+                });
+
+                // Normalize the NIC field
+                if (nicColumn && doc[nicColumn]) {
+                    doc.NIC = doc[nicColumn].toString().trim();
+                }
+
+                // Add source spreadsheet ID for tracking
+                doc.sourceSheet = spreadsheetId;
+
+                return doc;
+            });
+
+            // Cache the processed data
+            sheetsDataCache.set(cacheKey, {
+                data: sheetData,
+                timestamp: Date.now()
+            });
+
+            console.log(`Processed ${sheetData.length} rows from spreadsheet: ${spreadsheetId}`);
+            allData = [...allData, ...sheetData];
+        }catch (error) {
+            console.error(`Error fetching data from spreadsheet ${spreadsheetId}:`, error.message);
+        }
     }
 
-    const headers = rows[0];
-
-    // Find the NIC column (handle spaces and case variations)
-    const nicColumn = headers.find(header =>
-        header && header.toString().trim().toUpperCase().includes('NIC')
-    );
-
-    console.log('Found NIC column:', `"${nicColumn}"`);
-
-    const data = rows.slice(1).map(row => {
-        let doc = {};
-        headers.forEach((header, i) => {
-            doc[header] = row[i] || '';
-        });
-
-        // Normalize the NIC field - copy the actual NIC column to a clean "NIC" field
-        if (nicColumn && doc[nicColumn]) {
-            doc.NIC = doc[nicColumn].toString().trim();
-        }
-
-        return doc;
-    });
-
-    console.log(`[Candidates data fetch] Processed ${data.length} data rows`);
-    return data;
+    console.log(`[Candidates data fetch] Total rows processed across all sheets: ${allData.length}`);
+    return allData;
 }
 
 async function processDataForMongo(docs) {
@@ -117,11 +155,9 @@ async function processDataForMongo(docs) {
 }
 
 async function insertIntoMongo(docs) {
-    const client = new MongoClient(env.MONGODB_URI);
     try {
-        await client.connect();
-        const db = client.db(env.MONGODB_DB);
-        const collection = db.collection(env.MONGODB_COLLECTION);
+        // Use connection pool instead of creating new connections
+        const collection = await mongoPool.getCollection(env.MONGODB_COLLECTION);
 
         // Process data to keep only the latest entry per NIC
         const processedDocs = await processDataForMongo(docs);
@@ -131,71 +167,73 @@ async function insertIntoMongo(docs) {
         let skippedCount = 0;
         let errorCount = 0;
 
-        // Process each document
-        for (const doc of processedDocs) {
-            try {
-                // Skip if NIC number is missing
-                if (!doc.NIC) {
-                    console.log('Skipping document without NIC');
-                    skippedCount++;
-                    continue;
-                }
+        // Use bulk operations for better performance and reduced connection overhead
+        const bulkOps = [];
+        const batchSize = 100; // Process in smaller batches to reduce memory usage
 
-                // Map district to province and add Province key
-                doc.Province = getProvinceByDistrict(doc.District);
+        for (let i = 0; i < processedDocs.length; i += batchSize) {
+            const batch = processedDocs.slice(i, i + batchSize);
 
-                // Transform data according to business rules
-                transformDocumentDataAmpara(doc);
-
-                // Check if document with same NIC exists
-                const existingDoc = await collection.findOne({ NIC: doc.NIC });
-
-                if (existingDoc) {
-                    // Compare if there are actual changes before updating
-                    let hasChanges = false;
-                    const updateDoc = {};
-
-                    for (const [key, value] of Object.entries(doc)) {
-                        if (value !== undefined && value !== null && value !== '') {
-                            // Only include field if it's different from existing document
-                            if (existingDoc[key] !== value) {
-                                updateDoc[key] = value;
-                                hasChanges = true;
-                            }
-                        }
-                    }
-
-                    // Only update if there are actual changes
-                    if (hasChanges) {
-                        const result = await collection.updateOne(
-                            { NIC: doc.NIC },
-                            { $set: updateDoc }
-                        );
-                        if (result.modifiedCount > 0) updatedCount++;
-                    } else {
-                        // console.log(`No changes for NIC ${doc.NIC}`);
+            for (const doc of batch) {
+                try {
+                    // Skip if NIC number is missing
+                    if (!doc.NIC) {
                         skippedCount++;
+                        continue;
                     }
-                } else {
-                    // Insert new document
-                    await collection.insertOne(doc);
-                    insertedCount++;
+
+                    // Map district to province and add Province key
+                    doc.Province = getProvinceByDistrict(doc.District);
+
+                    // Transform data according to business rules
+                    transformDocumentDataAmpara(doc);
+
+                    // Use upsert operation for efficiency
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { NIC: doc.NIC },
+                            update: { $set: doc },
+                            upsert: true
+                        }
+                    });
+
+                } catch (error) {
+                    console.error(`Error processing document with NIC ${doc.NIC}:`, error.message);
+                    errorCount++;
                 }
-            } catch (error) {
-                console.error(`Error processing document with NIC ${doc.NIC}: ${error.message}`);
-                errorCount++;
+            }
+
+            // Execute bulk operations for this batch
+            if (bulkOps.length > 0) {
+                try {
+                    const result = await collection.bulkWrite(bulkOps, { ordered: false });
+                    insertedCount += result.upsertedCount;
+                    updatedCount += result.modifiedCount;
+
+                    // Clear bulk ops for next batch
+                    bulkOps.length = 0;
+                } catch (bulkError) {
+                    console.error('Bulk operation error:', bulkError.message);
+                    errorCount += bulkOps.length;
+                }
             }
         }
 
-        console.log(`
-Registration processing complete:
-- Updated: ${updatedCount} documents
-- Inserted: ${insertedCount} new documents
-- Skipped: ${skippedCount} documents
-- Errors: ${errorCount} documents
-        `);
-    } finally {
-        await client.close();
+        console.log(`✅[Candidates] MongoDB sync completed:`);
+        console.log(`   📝 Inserted: ${insertedCount}`);
+        console.log(`   🔄 Updated: ${updatedCount}`);
+        console.log(`   ⏭️ Skipped: ${skippedCount}`);
+        console.log(`   ❌ Errors: ${errorCount}`);
+
+        return {
+            inserted: insertedCount,
+            updated: updatedCount,
+            skipped: skippedCount,
+            errors: errorCount
+        };
+    } catch (error) {
+        console.error('❌[Candidates] Error in insertIntoMongo:', error.message);
+        throw error;
     }
 }
 
@@ -212,12 +250,10 @@ async function syncData() {
 
 async function cleanCollection() {
     console.log(`Starting registrations collection cleanup at ${new Date().toISOString()}`);
-    const client = new MongoClient(env.MONGODB_URI);
 
     try {
-        await client.connect();
-        const db = client.db(env.MONGODB_DB);
-        const collection = db.collection(env.MONGODB_COLLECTION);
+        // Use connection pool instead of creating new connection
+        const collection = await mongoPool.getCollection(env.MONGODB_COLLECTION);
 
         // Get all distinct NICs
         const distinctNics = await collection.distinct('NIC', { NIC: { $exists: true, $ne: '' } });
@@ -225,32 +261,54 @@ async function cleanCollection() {
 
         let removedCount = 0;
 
-        // For each NIC, find all documents and keep only the latest one
-        for (const nic of distinctNics) {
-            // Find all documents with this NIC, sorted by Timestamp (descending)
-            const docs = await collection.find({ NIC: nic })
-                .sort({ Timestamp: -1 })
-                .toArray();
+        // Process in batches to avoid memory issues with large datasets
+        const batchSize = 100;
+        for (let i = 0; i < distinctNics.length; i += batchSize) {
+            const nicBatch = distinctNics.slice(i, i + batchSize);
 
-            // If more than one document exists for this NIC
-            if (docs.length > 1) {
-                // Keep the first one (latest by timestamp) and delete the rest
-                const docsToDelete = docs.slice(1);
-                const deleteIds = docsToDelete.map(doc => doc._id);
+            // Use aggregation to find duplicates more efficiently
+            const duplicates = await collection.aggregate([
+                {
+                    $match: {
+                        NIC: { $in: nicBatch }
+                    }
+                },
+                {
+                    $sort: { NIC: 1, Timestamp: -1 }
+                },
+                {
+                    $group: {
+                        _id: '$NIC',
+                        docs: { $push: { id: '$_id', timestamp: '$Timestamp' } },
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $match: { count: { $gt: 1 } }
+                }
+            ]).toArray();
 
+            // Collect IDs to delete (keep the first, delete the rest)
+            const idsToDelete = [];
+            duplicates.forEach(nic => {
+                const docsToDelete = nic.docs.slice(1); // Skip first (latest) document
+                idsToDelete.push(...docsToDelete.map(doc => doc.id));
+            });
+
+            // Delete duplicates in bulk
+            if (idsToDelete.length > 0) {
                 const deleteResult = await collection.deleteMany({
-                    _id: { $in: deleteIds }
+                    _id: { $in: idsToDelete }
                 });
-
                 removedCount += deleteResult.deletedCount;
+                console.log(`Processed batch ${Math.floor(i/batchSize) + 1}: removed ${deleteResult.deletedCount} duplicates`);
             }
         }
 
         console.log(`[registrations] Cleanup complete: Removed ${removedCount} duplicate documents`);
     } catch (error) {
         console.error('Error during registrations collection cleanup:', error);
-    } finally {
-        await client.close();
+        throw error;
     }
 }
 
