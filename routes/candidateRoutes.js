@@ -344,15 +344,25 @@ router.get('/results', authenticateToken, async (req, res) => {
             }
         );
 
-        // Extract only the requested fields
+        // Determine subject stream to return appropriate grade
+        const subjectStream = candidateDoc['Subject Stream'];
+        const isBioScience = subjectStream === 'Bio Science';
+
+        // Extract only the requested fields based on subject stream
         const filteredResults = {
             district_rank: candidateDoc.results?.district_rank || "",
             island_rank: candidateDoc.results?.island_rank || "",
             final_zscore: candidateDoc.results?.final_zscore || "",
-            bio_grade: candidateDoc.results?.bio_grade || "",
             physics_grade: candidateDoc.results?.physics_grade || "",
             chemistry_grade: candidateDoc.results?.chemistry_grade || ""
         };
+
+        // Add bio_grade for Bio Science students or maths_grade for Physical Science students
+        if (isBioScience) {
+            filteredResults.bio_grade = candidateDoc.results?.bio_grade || "";
+        } else {
+            filteredResults.maths_grade = candidateDoc.results?.maths_grade || "";
+        }
 
         const duration = Date.now() - startTime;
         console.log(`Results fetched successfully for ${candidateNIC} in ${duration}ms`);
