@@ -70,6 +70,9 @@ function assignGrade(score) {
 
     const numericScore = parseFloat(score);
 
+    // Mark as Absent if score is 0
+    if (numericScore === 0) return 'Absent';
+
     if (numericScore >= 75) return 'A';
     if (numericScore >= 65) return 'B';
     if (numericScore >= 55) return 'C';

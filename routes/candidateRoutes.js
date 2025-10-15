@@ -256,9 +256,9 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
                     survey_achievements: achievements,
                     survey_volunteering_interest_ok: volunteeringInterest,
                     survey_volunteering_interests: interests,
-                    survey_completed_at: new Date()
+                    survey_completed_at: new Date(),
+                    check_results_button_click_complete: check_results_button_click_complete
                 },
-                check_results_button_click_complete
             }
         };
 
