@@ -135,8 +135,9 @@ router.post('/login', async (req, res) => {
         return res.status(400).json({ success: false, message: 'NIC and password are required' });
     }
 
+    let client;
     try {
-        const client = new MongoClient(mongoURI);
+        client = new MongoClient(mongoURI);
         await client.connect();
 
         const db = client.db(dbName);
@@ -159,12 +160,10 @@ router.post('/login', async (req, res) => {
 
         // Create JWT token
         const token = jwt.sign(
-            { id: candidate._id, nic: candidate.nic },
+            { id: candidate._id.toString(), NIC: candidate.NIC },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-
-        await client.close();
 
         return res.json({
             success: true,
@@ -175,6 +174,10 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Error logging in:', error);
         return res.status(500).json({ success: false, message: 'Server error while logging in' });
+    }finally {
+        if (client) {
+            await client.close();
+        }
     }
 });
 

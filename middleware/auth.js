@@ -7,15 +7,38 @@ const authenticateToken = (req, res, next) => {
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
-        return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+        return res.status(401).json({
+            success: false,
+            message: 'Access token is required'
+        });
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
+        // Verify token
+        jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+            if (err) {
+                console.error('Token verification failed:', err);
+                return res.status(403).json({
+                    success: false,
+                    message: 'Invalid or expired token'
+                });
+            }
+
+            // Attach decoded user data to request
+            req.user = {
+                NIC: decoded.NIC,
+                id: decoded.id,
+                role: decoded.role
+            };
+
+            next();
+        });
     } catch (error) {
-        return res.status(403).json({ success: false, message: 'Invalid token' });
+        console.error('Authentication error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Authentication failed'
+        });
     }
 };
 
