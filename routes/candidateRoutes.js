@@ -92,9 +92,9 @@ router.post('/signup', async (req, res) => {
                     }}
             );
 
-            // Create JWT token
+            // Create JWT token - Fixed to use consistent casing for NIC
             const token = jwt.sign(
-                { id: existingCandidate._id, nic: existingCandidate.nic },
+                { id: existingCandidate._id.toString(), NIC: existingCandidate.NIC },
                 process.env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
@@ -158,11 +158,11 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid credentials' });
         }
 
-        // Create JWT token
+        // Create JWT token with longer expiration
         const token = jwt.sign(
             { id: candidate._id.toString(), NIC: candidate.NIC },
             process.env.JWT_SECRET,
-            { expiresIn: '1h' }
+            { expiresIn: '24h' }  // Changed from 1h to 24h to match signup
         );
 
         return res.json({
@@ -230,13 +230,15 @@ router.get('/profile', authenticateToken, async (req, res) => {
 // Update candidate survey results
 router.post('/update-survey', authenticateToken, async (req, res) => {
     const {
-        NIC,
         extraCurricular,
         achievements,
         volunteeringInterest,
         interests,
         check_results_button_click_complete
     } = req.body;
+
+    // Get NIC from authenticated token instead of request body
+    const NIC = req.user.NIC;
 
     try {
         const client = new MongoClient(mongoURI);
@@ -253,24 +255,40 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
                     survey_achievements: achievements,
                     survey_volunteering_interest_ok: volunteeringInterest,
                     survey_volunteering_interests: interests,
-                    check_results_button_click_complete: check_results_button_click_complete,
                     survey_completed_at: new Date()
                 },
+                check_results_button_click_complete
             }
         };
 
-        // // If click is complete, increment the counter
-        // if (check_results_button_click_complete) {
-        //     updateOperation.$inc = { check_results_button_clicks_count: 1 };
-        // }
+        // If click is complete, increment the counter
+        if (check_results_button_click_complete) {
+            updateOperation.$inc = { check_results_button_clicks_count: 1 };
+        }
 
-        await collection.updateOne({ NIC: NIC }, updateOperation);
+        const result = await collection.updateOne(
+            { NIC: NIC },
+            updateOperation
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Candidate not found'
+            });
+        }
 
         await client.close();
-        return res.json({ success: true, message: 'Survey data saved successfully' });
+        return res.json({
+            success: true,
+            message: 'Survey data saved successfully'
+        });
     } catch (error) {
         console.error('Error saving survey data:', error);
-        return res.status(500).json({ success: false, message: 'Server error while saving survey data' });
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while saving survey data'
+        });
     }
 });
 
@@ -293,7 +311,8 @@ router.get('/results', authenticateToken, async (req, res) => {
         const db = client.db(dbName);
         const collection = db.collection(candidateCollection);
 
-        const candidateDoc = await collection.findOne({ candidateNIC });
+        // Fixed query to use correct field name
+        const candidateDoc = await collection.findOne({ NIC: candidateNIC });
 
         if (!candidateDoc) {
             console.log(`Candidate not found: ${candidateNIC}`);
@@ -313,12 +332,12 @@ router.get('/results', authenticateToken, async (req, res) => {
         }
 
         // Track result check count
-        const checkResultsCount = candidateDoc.check_results_clicks_count || 0;
+        const checkResultsCount = candidateDoc.check_results_button_clicks_count || 0;
         await collection.updateOne(
             { NIC: candidateNIC },
             {
                 $set: {
-                    check_results_clicks_count: checkResultsCount + 1,
+                    check_results_button_clicks_count: checkResultsCount + 1,
                     last_results_check_at: new Date()
                 }
             }
@@ -326,12 +345,12 @@ router.get('/results', authenticateToken, async (req, res) => {
 
         // Extract only the requested fields
         const filteredResults = {
-            district_rank: candidateDoc.results.district_rank || "",
-            island_rank: candidateDoc.results.island_rank || "",
-            final_zscore: candidateDoc.results.final_zscore || "",
-            bio_grade: candidateDoc.results.bio_grade || "",
-            physics_grade: candidateDoc.results.physics_grade || "",
-            chemistry_grade: candidateDoc.results.chemistry_grade || ""
+            district_rank: candidateDoc.results?.district_rank || "",
+            island_rank: candidateDoc.results?.island_rank || "",
+            final_zscore: candidateDoc.results?.final_zscore || "",
+            bio_grade: candidateDoc.results?.bio_grade || "",
+            physics_grade: candidateDoc.results?.physics_grade || "",
+            chemistry_grade: candidateDoc.results?.chemistry_grade || ""
         };
 
         const duration = Date.now() - startTime;
