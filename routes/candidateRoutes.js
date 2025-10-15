@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { MongoClient, ObjectId } = require('mongodb');
 const { authenticateToken } = require('../middleware/auth');
+const env = require('../config/env');
 
 const mongoURI = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
@@ -95,7 +96,7 @@ router.post('/signup', async (req, res) => {
             // Create JWT token - Fixed to use consistent casing for NIC
             const token = jwt.sign(
                 { id: existingCandidate._id.toString(), NIC: existingCandidate.NIC },
-                process.env.JWT_SECRET,
+                env.JWT_SECRET,  // Using env module's JWT_SECRET
                 { expiresIn: '24h' }
             );
 
@@ -158,11 +159,11 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid credentials' });
         }
 
-        // Create JWT token with longer expiration
+        // Create JWT token with consistent secret key reference
         const token = jwt.sign(
             { id: candidate._id.toString(), NIC: candidate.NIC },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }  // Changed from 1h to 24h to match signup
+            env.JWT_SECRET,  // Using env module's JWT_SECRET
+            { expiresIn: '24h' }
         );
 
         return res.json({
@@ -174,7 +175,7 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Error logging in:', error);
         return res.status(500).json({ success: false, message: 'Server error while logging in' });
-    }finally {
+    } finally {
         if (client) {
             await client.close();
         }

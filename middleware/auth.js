@@ -14,8 +14,8 @@ const authenticateToken = (req, res, next) => {
     }
 
     try {
-        // Verify token
-        jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        // Verify token using the env module's JWT_SECRET
+        jwt.verify(token, env.JWT_SECRET, (err, decoded) => {
             if (err) {
                 console.error('Token verification failed:', err);
                 return res.status(403).json({
