@@ -14,6 +14,7 @@ module.exports = {
     SHEET_ID_MATARA: process.env.SHEET_ID_MATARA,
     ADMIN_SHEET_ID: process.env.ADMIN_SHEET_ID,
     SHEET_ID_CO_TEAM: process.env.SHEET_ID_CO_TEAM,
+    RESULTS_SHEET_ID: process.env.RESULTS_SHEET_ID,
 
     // MongoDB Configuration
     MONGODB_URI: process.env.MONGODB_URI ,

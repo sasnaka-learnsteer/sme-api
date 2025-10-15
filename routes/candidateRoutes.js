@@ -203,6 +203,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     attended_days: 1,
                     _id: 1,
                     results_released: 1,
+                    check_results_button_clicks_count: 1
                 }  }
         );
 
@@ -220,6 +221,136 @@ router.get('/profile', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error fetching profile:', error);
         return res.status(500).json({ success: false, message: 'Server error while fetching profile' });
+    }
+});
+
+// Update candidate survey results
+router.post('/update-survey', authenticateToken, async (req, res) => {
+    const {
+        NIC,
+        extraCurricular,
+        achievements,
+        volunteeringInterest,
+        interests,
+        check_results_button_click_complete
+    } = req.body;
+
+    try {
+        const client = new MongoClient(mongoURI);
+        await client.connect();
+
+        const db = client.db(dbName);
+        const collection = db.collection(candidateCollection);
+
+        // Create update object
+        const updateOperation = {
+            $set: {
+                check_result_survey_results: {
+                    survey_extra_curricular: extraCurricular,
+                    survey_achievements: achievements,
+                    survey_volunteering_interest_ok: volunteeringInterest,
+                    survey_volunteering_interests: interests,
+                    check_results_button_click_complete: check_results_button_click_complete,
+                    survey_completed_at: new Date()
+                },
+            }
+        };
+
+        // // If click is complete, increment the counter
+        // if (check_results_button_click_complete) {
+        //     updateOperation.$inc = { check_results_button_clicks_count: 1 };
+        // }
+
+        await collection.updateOne({ NIC: NIC }, updateOperation);
+
+        await client.close();
+        return res.json({ success: true, message: 'Survey data saved successfully' });
+    } catch (error) {
+        console.error('Error saving survey data:', error);
+        return res.status(500).json({ success: false, message: 'Server error while saving survey data' });
+    }
+});
+
+// Get candidate results
+router.get('/results', authenticateToken, async (req, res) => {
+    const startTime = Date.now();
+    let client;
+
+    try {
+        // Get candidate NIC from authenticated token
+        const candidateNIC = req.user.NIC;
+
+        client = new MongoClient(mongoURI, {
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 10000
+        });
+
+        await client.connect();
+
+        const db = client.db(dbName);
+        const collection = db.collection(candidateCollection);
+
+        const candidateDoc = await collection.findOne({ candidateNIC });
+
+        if (!candidateDoc) {
+            console.log(`Candidate not found: ${candidateNIC}`);
+            return res.status(404).json({
+                success: false,
+                message: 'Candidate not found'
+            });
+        }
+
+        // Check if results are released for this candidate
+        if (!candidateDoc.results_released) {
+            console.log(`Results not released for candidate: ${candidateNIC}`);
+            return res.status(403).json({
+                success: false,
+                message: 'Results are not yet released for this candidate'
+            });
+        }
+
+        // Track result check count
+        const checkResultsCount = candidateDoc.check_results_clicks_count || 0;
+        await collection.updateOne(
+            { NIC: candidateNIC },
+            {
+                $set: {
+                    check_results_clicks_count: checkResultsCount + 1,
+                    last_results_check_at: new Date()
+                }
+            }
+        );
+
+        // Extract only the requested fields
+        const filteredResults = {
+            district_rank: candidateDoc.results.district_rank || "",
+            island_rank: candidateDoc.results.island_rank || "",
+            final_zscore: candidateDoc.results.final_zscore || "",
+            bio_grade: candidateDoc.results.bio_grade || "",
+            physics_grade: candidateDoc.results.physics_grade || "",
+            chemistry_grade: candidateDoc.results.chemistry_grade || ""
+        };
+
+        const duration = Date.now() - startTime;
+        console.log(`Results fetched successfully for ${candidateNIC} in ${duration}ms`);
+
+        return res.json({
+            success: true,
+            results: filteredResults
+        });
+
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        console.error(`Error fetching candidate results (${duration}ms):`, error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while fetching results'
+        });
+    } finally {
+        if (client) {
+            await client.close();
+        }
     }
 });
 
