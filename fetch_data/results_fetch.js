@@ -128,13 +128,13 @@ async function updateExamResults() {
                     }
 
                     const resultsObject = {
-                        maths_final_score: result["Maths Final"],
+                        bio_final_score: result["Bio Final"],
                         physics_final_score: result["Phy Final"],
                         chemistry_final_score: result["Chem Final"],
                         district_rank: result["District Rank"] || '',
                         island_rank: result["Island Rank"] || '',
                         final_zscore: result["Final Z Score"] || '',
-                        maths_grade: assignGrade(result["Maths Final"]),
+                        bio_grade: assignGrade(result["Bio Final"]),
                         physics_grade: assignGrade(result["Phy Final"]),
                         chemistry_grade: assignGrade(result["Chem Final"])
                     };

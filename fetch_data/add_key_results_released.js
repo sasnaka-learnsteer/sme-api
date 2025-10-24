@@ -10,7 +10,7 @@ async function addResultsReleasedField() {
         // Update all documents that have a results field
         const result = await collection.updateMany(
             { results: { $exists: true } },
-            { $set: { results_released: false } }
+            { $set: { results_released: true } }
         );
 
         console.log(`✅[Update] Operation completed:`);
