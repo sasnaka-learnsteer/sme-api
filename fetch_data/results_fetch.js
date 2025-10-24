@@ -66,7 +66,7 @@ async function fetchExamResultsData() {
 
 // Function to assign grade based on score
 function assignGrade(score) {
-    if (!score || isNaN(parseFloat(score))) return 'S';
+    if (!score || isNaN(parseFloat(score))) return 'Absent';
 
     const numericScore = parseFloat(score);
 
@@ -76,7 +76,9 @@ function assignGrade(score) {
     if (numericScore >= 75) return 'A';
     if (numericScore >= 65) return 'B';
     if (numericScore >= 55) return 'C';
-    return 'S';
+    if (numericScore >= 10) return 'S';
+    if (numericScore > 0) return 'F';
+    return 'Absent';
 }
 
 function processScore(score) {
@@ -126,15 +128,15 @@ async function updateExamResults() {
                     }
 
                     const resultsObject = {
-                        bio_final_score: processScore(result["Bio Final"]),
-                        physics_final_score: processScore(result["Phy Final"]),
-                        chemistry_final_score: processScore(result["Chem Final"]),
+                        maths_final_score: result["Maths Final"],
+                        physics_final_score: result["Phy Final"],
+                        chemistry_final_score: result["Chem Final"],
                         district_rank: result["District Rank"] || '',
                         island_rank: result["Island Rank"] || '',
                         final_zscore: result["Final Z Score"] || '',
-                        bio_grade: assignGrade(processScore(result["Bio Final"])),
-                        physics_grade: assignGrade(processScore(result["Phy Final"])),
-                        chemistry_grade: assignGrade(processScore(result["Chem Final"]))
+                        maths_grade: assignGrade(result["Maths Final"]),
+                        physics_grade: assignGrade(result["Phy Final"]),
+                        chemistry_grade: assignGrade(result["Chem Final"])
                     };
 
                     bulkOps.push({
