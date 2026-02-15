@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -39,15 +40,51 @@ router.post('/check-nic', async (req, res) => {
             return res.json({
                 success: true,
                 exists: true,
-                hasMySmeAccount: hasMySmeAccount,
-                candidateId: candidate._id
+                hasMySmeAccount: hasMySmeAccount
             });
         } else {
-            return res.json({
-                success: true,
-                exists: false,
-                hasMySmeAccount: false
-            });
+            // Fallback: Check external API
+            try {
+                const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
+                if (!externalApiUrl) {
+                    console.error('EXTERNAL_SS_QUIZ_API_URL is not defined in environment variables');
+                    return res.status(500).json({
+                        success: false,
+                        error: "Internal server error: Configuration missing"
+                    });
+                }
+
+                const externalResponse = await axios.post(`${externalApiUrl}/api/v1/auth/check-nic`, {
+                    NIC: NIC
+                }, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (externalResponse.data.success && externalResponse.data.exists) {
+                    return res.json({
+                        success: true,
+                        exists: true,
+                        hasMySmeAccount: externalResponse.data.has_password // Map has_password to hasMySmeAccount
+                    });
+                } else {
+                    return res.json({
+                        success: true,
+                        exists: false,
+                        hasMySmeAccount: false
+                    });
+                }
+            } catch (externalError) {
+                // If external API returns 400 Bad Request (Validation Error)
+                if (externalError.response && externalError.response.status === 400) {
+                    return res.status(400).json(externalError.response.data);
+                }
+                // If external API returns 500 or fails (Server Error)
+                console.error('Error checking external NIC:', externalError.message);
+                return res.status(500).json({
+                    success: false,
+                    error: "Internal server error during external verification"
+                });
+            }
         }
     } catch (error) {
         console.error('Error checking NIC:', error);
@@ -87,10 +124,12 @@ router.post('/signup', async (req, res) => {
             // Update candidate with password (create MySME account)
             await collection.updateOne(
                 { NIC },
-                { $set: {
+                {
+                    $set: {
                         password: hashedPassword,
                         lastUpdated: new Date()
-                    }}
+                    }
+                }
             );
 
             // Create JWT token - Fixed to use consistent casing for NIC
@@ -193,7 +232,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
         const candidate = await collection.findOne(
             { _id: new ObjectId(req.user.id) },
-            { projection: {
+            {
+                projection: {
                     NIC: 1,
                     "Full Name": 1,
                     "School ": 1,
@@ -208,7 +248,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     _id: 1,
                     results_released: 1,
                     check_results_button_clicks_count: 1
-                }  }
+                }
+            }
         );
 
         await client.close();

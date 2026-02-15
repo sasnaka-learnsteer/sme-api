@@ -37,5 +37,8 @@ module.exports = {
 
     // Node Environment
     NODE_ENV: process.env.NODE_ENV || 'development',
-    PORT: process.env.PORT || 3001
+    PORT: process.env.PORT || 3001,
+
+    // External APIs
+    EXTERNAL_SS_QUIZ_API_URL: process.env.EXTERNAL_SS_QUIZ_API_URL
 };
