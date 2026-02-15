@@ -185,31 +185,75 @@ router.post('/login', async (req, res) => {
 
         const candidate = await collection.findOne({ NIC });
 
-        if (!candidate || !candidate.password) {
-            await client.close();
-            return res.status(400).json({ success: false, message: 'Invalid credentials or MySME account does not exist' });
+        if (candidate && candidate.password) {
+            // Case 1: Local user with password
+            const isMatch = await bcrypt.compare(password, candidate.password);
+
+            if (!isMatch) {
+                await client.close();
+                return res.status(400).json({ success: false, message: 'Invalid credentials' });
+            }
+
+            // Create JWT token
+            const token = jwt.sign(
+                { id: candidate._id.toString(), NIC: candidate.NIC },
+                env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            return res.json({
+                success: true,
+                token
+            });
+        } else {
+            // Case 2: User not found locally OR User found but has no local password
+            // Fallback: Verify password with external API
+            try {
+                const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
+                if (!externalApiUrl) {
+                    console.error('EXTERNAL_SS_QUIZ_API_URL is not defined');
+                    await client.close();
+                    return res.status(500).json({ success: false, message: 'Configuration error' });
+                }
+
+                const externalResponse = await axios.post(`${externalApiUrl}/api/v1/auth/verify-password`, {
+                    NIC: NIC,
+                    password: password
+                }, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (externalResponse.data.success && externalResponse.data.is_valid) {
+                    // Authentication successful via external API
+                    // Determine ID: use existing candidate ID or generate a new one
+                    const userId = candidate ? candidate._id : new ObjectId();
+
+                    const token = jwt.sign(
+                        { id: userId.toString(), NIC: NIC },
+                        env.JWT_SECRET,
+                        { expiresIn: '24h' }
+                    );
+
+                    await client.close();
+                    return res.json({
+                        success: true,
+                        token
+                    });
+                } else {
+                    // External auth failed (invalid password or NIC)
+                    await client.close();
+                    return res.status(400).json({ success: false, message: 'Invalid credentials' });
+                }
+
+            } catch (externalError) {
+                console.error('Error verifying external password:', externalError.message);
+                await client.close();
+                // Treat external error as invalid credentials or server error?
+                // For security, maybe just invalid credentials or generic error.
+                // But if external API is down, user can't login.
+                return res.status(500).json({ success: false, message: 'Error verifying credentials externally' });
+            }
         }
-
-        // Verify password
-        const isMatch = await bcrypt.compare(password, candidate.password);
-
-        if (!isMatch) {
-            await client.close();
-            return res.status(400).json({ success: false, message: 'Invalid credentials' });
-        }
-
-        // Create JWT token with consistent secret key reference
-        const token = jwt.sign(
-            { id: candidate._id.toString(), NIC: candidate.NIC },
-            env.JWT_SECRET,  // Using env module's JWT_SECRET
-            { expiresIn: '24h' }
-        );
-
-        return res.json({
-            success: true,
-            token,
-            candidateId: candidate._id
-        });
 
     } catch (error) {
         console.error('Error logging in:', error);
