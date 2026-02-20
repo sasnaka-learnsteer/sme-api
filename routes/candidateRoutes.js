@@ -203,7 +203,8 @@ router.post('/login', async (req, res) => {
 
             return res.json({
                 success: true,
-                token
+                token,
+                candidateId: candidate._id,
             });
         } else {
             // Case 2: User not found locally OR User found but has no local password
@@ -237,7 +238,8 @@ router.post('/login', async (req, res) => {
                     await client.close();
                     return res.json({
                         success: true,
-                        token
+                        token,
+                        candidateId: userId,
                     });
                 } else {
                     // External auth failed (invalid password or NIC)
@@ -267,8 +269,9 @@ router.post('/login', async (req, res) => {
 
 // Get candidate profile
 router.get('/profile', authenticateToken, async (req, res) => {
+    let client;
     try {
-        const client = new MongoClient(mongoURI);
+        client = new MongoClient(mongoURI);
         await client.connect();
 
         const db = client.db(dbName);
@@ -297,19 +300,64 @@ router.get('/profile', authenticateToken, async (req, res) => {
         );
 
         await client.close();
+        client = null;
 
-        if (!candidate) {
+        if (candidate) {
+            return res.json({ success: true, candidate });
+        }
+
+        // Fallback: fetch profile from external API using NIC from JWT token
+        // External API: GET /api/v1/auth/profile/{NIC}
+        const candidateNIC = req.user.NIC;
+        const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
+
+        if (!externalApiUrl) {
+            console.error('EXTERNAL_SS_QUIZ_API_URL is not defined in environment variables');
             return res.status(404).json({ success: false, message: 'Candidate not found' });
         }
 
-        return res.json({
-            success: true,
-            candidate
-        });
+        console.log(`Candidate not found locally, attempting external API fallback for NIC: ${candidateNIC}`);
+
+        try {
+            // NIC is a path parameter per the external API contract
+            const externalResponse = await axios.get(`${externalApiUrl}/api/v1/auth/profile/${candidateNIC}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (externalResponse.data && externalResponse.data.success && externalResponse.data.data) {
+                const d = externalResponse.data.data;
+
+                // Map external snake_case fields to the local candidate shape
+                const externalCandidate = {
+                    NIC: d.nic,
+                    "Full Name": `${d.first_name || ''} ${d.last_name || ''}`.trim(),
+                    "School ": d.school,
+                    "Subject Stream": d.stream,
+                };
+
+                return res.json({
+                    success: true,
+                    candidate: externalCandidate,
+                    source: 'external'
+                });
+            } else {
+                return res.status(404).json({ success: false, message: 'Candidate not found' });
+            }
+        } catch (externalError) {
+            if (externalError.response && externalError.response.status === 404) {
+                return res.status(404).json({ success: false, message: 'Candidate not found' });
+            }
+            console.error('Error fetching profile from external API:', externalError.message);
+            return res.status(500).json({ success: false, message: 'Server error while fetching profile from external source' });
+        }
 
     } catch (error) {
         console.error('Error fetching profile:', error);
         return res.status(500).json({ success: false, message: 'Server error while fetching profile' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
     }
 });
 
