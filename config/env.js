@@ -40,5 +40,6 @@ module.exports = {
     PORT: process.env.PORT || 3001,
 
     // External APIs
-    EXTERNAL_SS_QUIZ_API_URL: process.env.EXTERNAL_SS_QUIZ_API_URL
+    EXTERNAL_SS_QUIZ_API_URL: process.env.EXTERNAL_SS_QUIZ_API_URL,
+    EXTERNAL_SS_QUIZ_API_KEY: process.env.EXTERNAL_SS_QUIZ_API_KEY
 };

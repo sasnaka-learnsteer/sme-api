@@ -520,4 +520,44 @@ router.get('/results', authenticateToken, async (req, res) => {
     }
 });
 
+// Get B2B tickets from external SS Quiz API
+router.post('/b2b-tickets', async (req, res) => {
+    const { nic } = req.body;
+
+    if (!nic) {
+        return res.status(400).json({ success: false, message: 'nic is required' });
+    }
+
+    const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
+    const apiKey = env.EXTERNAL_SS_QUIZ_API_KEY;
+
+    if (!externalApiUrl) {
+        console.error('EXTERNAL_SS_QUIZ_API_URL is not defined in environment variables');
+        return res.status(500).json({ success: false, message: 'Internal server error: Configuration missing' });
+    }
+
+    try {
+        const externalResponse = await axios.post(
+            `${externalApiUrl}/api/v1/b2b/tickets`,
+            { nic },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey || ''
+                }
+            }
+        );
+
+        return res.status(externalResponse.status).json(externalResponse.data);
+    } catch (error) {
+        if (error.response) {
+            // Forward the external API's error response
+            return res.status(error.response.status).json(error.response.data);
+        }
+        console.error('Error calling external B2B tickets API:', error.message);
+        return res.status(500).json({ success: false, message: 'Server error while fetching B2B tickets' });
+    }
+});
+
 module.exports = router;
+
