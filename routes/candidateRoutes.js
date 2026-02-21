@@ -521,7 +521,7 @@ router.get('/results', authenticateToken, async (req, res) => {
 });
 
 // Get B2B tickets from external SS Quiz API
-router.post('/b2b-tickets', async (req, res) => {
+router.post('/b2b-tickets', authenticateToken, async (req, res) => {
     const { nic } = req.body;
 
     if (!nic) {
