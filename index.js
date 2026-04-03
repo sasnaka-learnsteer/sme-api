@@ -18,6 +18,7 @@ app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/candidate', require('./routes/candidateRoutes'));
 app.use('/api/qrcode', require('./routes/qrCodeRoutes'));
+app.use('/api/results', require('./routes/resultRoutes'));
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {

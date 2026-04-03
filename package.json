@@ -22,9 +22,11 @@
     "mongoose": "^8.17.1",
     "newrelic": "^13.0.0",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.4",
     "openai": "^5.12.2",
     "pdfkit": "^0.17.1",
     "qrcode": "^1.5.4",
+    "sharp": "^0.34.5",
     "twilio": "^5.8.0",
     "ws": "^8.18.3"
   },
