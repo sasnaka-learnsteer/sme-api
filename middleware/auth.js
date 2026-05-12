@@ -31,6 +31,7 @@ const authenticateToken = (req, res, next) => {
                 role: decoded.role,
                 isResetToken: decoded.isResetToken
             };
+            req.token = token;
 
             next();
         });

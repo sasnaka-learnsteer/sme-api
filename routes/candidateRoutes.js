@@ -314,6 +314,10 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Candidate not found' });
         }
 
+        if (candidate.usedResetTokens && candidate.usedResetTokens.includes(req.token)) {
+            return res.status(403).json({ success: false, message: 'This reset token has already been used' });
+        }
+
         // Hash the new password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
@@ -325,6 +329,9 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
                 $set: {
                     password: hashedPassword,
                     lastUpdated: new Date()
+                },
+                $push: {
+                    usedResetTokens: req.token
                 }
             }
         );
