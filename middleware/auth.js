@@ -28,7 +28,8 @@ const authenticateToken = (req, res, next) => {
             req.user = {
                 NIC: decoded.NIC,
                 id: decoded.id,
-                role: decoded.role
+                role: decoded.role,
+                isResetToken: decoded.isResetToken
             };
 
             next();

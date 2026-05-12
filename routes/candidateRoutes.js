@@ -190,8 +190,13 @@ router.post('/login', async (req, res) => {
             const isMatch = await bcrypt.compare(password, candidate.password);
 
             if (!isMatch) {
+                const resetToken = jwt.sign(
+                    { id: candidate._id.toString(), NIC: candidate.NIC, isResetToken: true },
+                    env.JWT_SECRET,
+                    { expiresIn: '15m' }
+                );
                 await client.close();
-                return res.status(400).json({ success: false, message: 'Invalid credentials' });
+                return res.status(400).json({ success: false, message: 'Invalid credentials', resetToken });
             }
 
             // Create JWT token
@@ -243,8 +248,14 @@ router.post('/login', async (req, res) => {
                     });
                 } else {
                     // External auth failed (invalid password or NIC)
+                    const userId = candidate ? candidate._id : new ObjectId();
+                    const resetToken = jwt.sign(
+                        { id: userId.toString(), NIC: NIC, isResetToken: true },
+                        env.JWT_SECRET,
+                        { expiresIn: '15m' }
+                    );
                     await client.close();
-                    return res.status(400).json({ success: false, message: 'Invalid credentials' });
+                    return res.status(400).json({ success: false, message: 'Invalid credentials', resetToken });
                 }
 
             } catch (externalError) {
@@ -260,6 +271,68 @@ router.post('/login', async (req, res) => {
     } catch (error) {
         console.error('Error logging in:', error);
         return res.status(500).json({ success: false, message: 'Server error while logging in' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
+    }
+});
+
+// Reset candidate password
+router.post('/reset-password', authenticateToken, async (req, res) => {
+    // Evaluate whether it's a reset token
+    if (!req.user.isResetToken) {
+        return res.status(403).json({ success: false, message: 'Invalid token type for password reset. A specific reset token is required.' });
+    }
+
+    const { NIC, newPassword } = req.body;
+
+    // Determine the NIC to use (prefer token, fallback to body but must match)
+    const targetNIC = req.user.NIC;
+
+    // If frontend sends a NIC that doesn't match the authenticated user, reject it
+    if (NIC && NIC !== targetNIC) {
+        return res.status(403).json({ success: false, message: 'You can only reset your own password' });
+    }
+
+    if (!newPassword) {
+        return res.status(400).json({ success: false, message: 'New password is required' });
+    }
+
+    let client;
+    try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+
+        const db = client.db(dbName);
+        const collection = db.collection(candidateCollection);
+
+        // Check if candidate exists
+        const candidate = await collection.findOne({ NIC: targetNIC });
+
+        if (!candidate) {
+            return res.status(404).json({ success: false, message: 'Candidate not found' });
+        }
+
+        // Hash the new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update password
+        await collection.updateOne(
+            { NIC: targetNIC },
+            {
+                $set: {
+                    password: hashedPassword,
+                    lastUpdated: new Date()
+                }
+            }
+        );
+
+        return res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Error resetting password:', error);
+        return res.status(500).json({ success: false, message: 'Server error while resetting password' });
     } finally {
         if (client) {
             await client.close();
