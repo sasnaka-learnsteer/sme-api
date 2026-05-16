@@ -92,6 +92,76 @@ router.post('/check-nic', async (req, res) => {
     }
 });
 
+// Register a new student for SME26
+router.post('/register', async (req, res) => {
+    const firstName = req.body['First Name'] || req.body.firstName;
+    const lastName = req.body['Last Name'] || req.body.lastName;
+    const emailAddress = req.body['Email Address'] || req.body.emailAddress || req.body.email;
+    const NIC = req.body['NIC'] || req.body.nic;
+    const whatsappNumber = req.body['WhatsApp Number'] || req.body.whatsappNumber;
+    const school = req.body['School'] || req.body.school;
+    const alBatch = req.body['A/L Batch'] || req.body.alBatch;
+    const alAttempt = req.body['A/L Attempt'] || req.body.alAttempt;
+    const subjectStream = req.body['Subject Stream'] || req.body.subjectStream;
+    const medium = req.body['Medium'] || req.body.medium;
+    const district = req.body['District'] || req.body.district;
+    const preferredExamCenter = req.body['Preferred Exam Center'] || req.body.preferredExamCenter;
+
+    if (!NIC) {
+        return res.status(400).json({ success: false, message: 'NIC is required' });
+    }
+
+    let client;
+    try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+
+        const db = client.db(dbName);
+
+        // Check if NIC exists in either sme26registrations or sme25registrations
+        const existingSme26 = await db.collection('sme26registrations').findOne({ NIC: NIC });
+        const existingSme25 = await db.collection('sme25registrations').findOne({ NIC: NIC });
+
+        if (existingSme26 || existingSme25) {
+            return res.status(400).json({
+                success: false,
+                message: 'This NIC is already registered.'
+            });
+        }
+
+        const newRegistration = {
+            'First Name': firstName,
+            'Last Name': lastName,
+            'Email Address': emailAddress,
+            'NIC': NIC,
+            'WhatsApp Number': whatsappNumber,
+            'School': school,
+            'A/L Batch': alBatch,
+            'A/L Attempt': alAttempt,
+            'Subject Stream': subjectStream,
+            'Medium': medium,
+            'District': district,
+            'Preferred Exam Center': preferredExamCenter,
+            createdAt: new Date()
+        };
+
+        await db.collection('sme26registrations').insertOne(newRegistration);
+
+        return res.status(201).json({
+            success: true,
+            message: 'Registration successful'
+        });
+    } catch (error) {
+        console.error('Error during registration:', error);
+        return res.status(500).json({ success: false, message: 'Server error during registration' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
+    }
+});
+
+
 // Signup for a MySME account
 router.post('/signup', async (req, res) => {
     const { NIC, password } = req.body;
