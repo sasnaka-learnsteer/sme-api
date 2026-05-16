@@ -125,7 +125,7 @@ router.post('/register', async (req, res) => {
 
         // Check if NIC exists in either sme26registrations or sme25registrations
         const existingSme26 = await db.collection('sme26registrations').findOne({ NIC: NIC });
-        const existingSme25 = await db.collection('sme25registrations').findOne({ NIC: NIC });
+        const existingSme25 = await db.collection(candidateCollection).findOne({ NIC: NIC });
 
         if (existingSme26 || existingSme25) {
             return res.status(400).json({
@@ -141,8 +141,8 @@ router.post('/register', async (req, res) => {
             'NIC': NIC,
             'WhatsApp Number': whatsappNumber,
             'School': school,
-            'A/L Batch': alBatch,
-            'A/L Attempt': alAttempt,
+            'AL Batch': alBatch,
+            'AL Attempt': alAttempt,
             'Subject Stream': subjectStream,
             'Medium': medium,
             'District': district,
@@ -180,10 +180,13 @@ router.post('/signup', async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
+        const collection = db.collection('sme26registrations');
 
         // Check if candidate already exists
-        const existingCandidate = await collection.findOne({ NIC });
+        let existingCandidate = await collection.findOne({ NIC });
+        if (!existingCandidate) {
+            existingCandidate = await db.collection(candidateCollection).findOne({ NIC: NIC });
+        }
 
         // Hash the password
         const salt = await bcrypt.genSalt(10);
@@ -256,9 +259,15 @@ router.post('/login', async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
+        let candidate;
 
-        const candidate = await collection.findOne({ NIC });
+        // First, check sme26registrations
+        candidate = await db.collection('sme26registrations').findOne({ NIC });
+
+        // If not found, check sme25registrations
+        if (!candidate) {
+            candidate = await db.collection(candidateCollection).findOne({ NIC });
+        }
 
         if (candidate && candidate.password) {
             // Case 1: Local user with password

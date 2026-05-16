@@ -1,0 +1,73 @@
+{
+    "examination": "G.C.E.(A/L) EXAMINATION",
+    "year": "2025",
+    "name": "",
+    "indexNo": "",
+    "nic": "",
+    "districtRank": "-",
+    "islandRank": "-",
+    "marks": null,
+    "status": null,
+    "zScore": "-",
+    "stream": "BIOLOGICAL SCIENCE",
+    "subjectResults": [
+        {
+            "subjectName": "PHYSICS",
+            "subjectResult": "F"
+        },
+        {
+            "subjectName": "CHEMISTRY",
+            "subjectResult": "F"
+        },
+        {
+            "subjectName": "BIOLOGY",
+            "subjectResult": "C"
+        },
+        {
+            "subjectName": "COMMON GENERAL TEST",
+            "subjectResult": "060"
+        },
+        {
+            "subjectName": "GENERAL ENGLISH",
+            "subjectResult": "B"
+        }
+    ],
+    "studentInfo": [
+        {
+            "param": "Examination",
+            "value": "G.C.E.(A/L) EXAMINATION"
+        },
+        {
+            "param": "Year",
+            "value": "2025"
+        },
+        {
+            "param": "Name",
+            "value": ""
+        },
+        {
+            "param": "Index Number",
+            "value": ""
+        },
+        {
+            "param": "NIC Number",
+            "value": ""
+        },
+        {
+            "param": "District Rank",
+            "value": "-"
+        },
+        {
+            "param": "Island Rank",
+            "value": "-"
+        },
+        {
+            "param": "Z-Score",
+            "value": "-"
+        },
+        {
+            "param": "Subject Stream",
+            "value": "BIOLOGICAL SCIENCE"
+        }
+    ]
+}
