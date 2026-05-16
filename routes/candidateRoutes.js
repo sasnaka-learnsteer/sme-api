@@ -29,7 +29,12 @@ router.post('/check-nic', async (req, res) => {
         const db = client.db(dbName);
         const collection = db.collection(candidateCollection);
 
-        const candidate = await collection.findOne({ NIC });
+        let candidate = await collection.findOne({ NIC });
+
+        // Also check sme26registrations if not found in the primary collection
+        if (!candidate) {
+            candidate = await db.collection('sme26registrations').findOne({ NIC });
+        }
 
         await client.close();
 
@@ -442,7 +447,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     // qrCode: 1,
                     attended_papers: 1,
                     attended_days: 1,
-                    _id: 1,
+                    // _id: 1,
                     results_released: 1,
                     check_results_button_clicks_count: 1
                 }
