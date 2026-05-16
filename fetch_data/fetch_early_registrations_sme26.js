@@ -32,6 +32,9 @@ async function fetchSheetData() {
                     continue;
                 }
 
+                // Convert NIC to string to ensure it's saved as a string in the DB
+                record.NIC = String(record.NIC).trim();
+
                 // Check if already registered
                 const existing = await collection.findOne({ NIC: record.NIC });
                 if (!existing) {

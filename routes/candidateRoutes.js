@@ -11,6 +11,18 @@ const mongoURI = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
 const candidateCollection = process.env.MONGODB_COLLECTION;
 
+const COLLECTIONS_TO_CHECK = ['sme26registrations', candidateCollection];
+
+async function findCandidateInCollections(db, query, projection = {}) {
+    for (const collName of COLLECTIONS_TO_CHECK) {
+        if (!collName) continue;
+        const candidate = await db.collection(collName).findOne(query, projection);
+        if (candidate) {
+            return { candidate, collectionName: collName };
+        }
+    }
+    return { candidate: null, collectionName: null };
+}
 
 // Backend implementation for MySME API endpoints
 
@@ -27,14 +39,8 @@ router.post('/check-nic', async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
-
-        let candidate = await collection.findOne({ NIC: NIC });
-
-        // Also check sme26registrations if not found in the primary collection
-        if (!candidate) {
-            candidate = await db.collection('sme26registrations').findOne({ NIC:NIC });
-        }
+        
+        const { candidate } = await findCandidateInCollections(db, { NIC: NIC });
 
         await client.close();
 
@@ -123,11 +129,10 @@ router.post('/register', async (req, res) => {
 
         const db = client.db(dbName);
 
-        // Check if NIC exists in either sme26registrations or sme25registrations
-        const existingSme26 = await db.collection('sme26registrations').findOne({ NIC: NIC });
-        const existingSme25 = await db.collection(candidateCollection).findOne({ NIC: NIC });
+        // Check if NIC exists in any collection
+        const { candidate: existingCandidate } = await findCandidateInCollections(db, { NIC: NIC });
 
-        if (existingSme26 || existingSme25) {
+        if (existingCandidate) {
             return res.status(400).json({
                 success: false,
                 message: 'This NIC is already registered.'
@@ -180,13 +185,9 @@ router.post('/signup', async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection('sme26registrations');
 
-        // Check if candidate already exists
-        let existingCandidate = await collection.findOne({ NIC: NIC });
-        if (!existingCandidate) {
-            existingCandidate = await db.collection(candidateCollection).findOne({ NIC: NIC });
-        }
+        // Check if candidate already exists across all collections
+        const { candidate: existingCandidate, collectionName } = await findCandidateInCollections(db, { NIC: NIC });
 
         // Hash the password
         const salt = await bcrypt.genSalt(10);
@@ -199,8 +200,8 @@ router.post('/signup', async (req, res) => {
                 return res.status(400).json({ success: false, message: 'MySME account already exists for this NIC' });
             }
 
-            // Update candidate with password (create MySME account)
-            await collection.updateOne(
+            // Update candidate with password (create MySME account) in the specific collection they were found in
+            await db.collection(collectionName).updateOne(
                 { NIC: NIC },
                 {
                     $set: {
@@ -259,15 +260,8 @@ router.post('/login', async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        let candidate;
 
-        // First, check sme26registrations
-        candidate = await db.collection('sme26registrations').findOne({ NIC: NIC });
-
-        // If not found, check sme25registrations
-        if (!candidate) {
-            candidate = await db.collection(candidateCollection).findOne({ NIC: NIC });
-        }
+        const { candidate } = await findCandidateInCollections(db, { NIC: NIC });
 
         if (candidate && candidate.password) {
             // Case 1: Local user with password
@@ -389,10 +383,9 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
 
-        // Check if candidate exists
-        const candidate = await collection.findOne({ NIC: targetNIC });
+        // Check if candidate exists across all collections
+        const { candidate, collectionName } = await findCandidateInCollections(db, { NIC: targetNIC });
 
         if (!candidate) {
             return res.status(404).json({ success: false, message: 'Candidate not found' });
@@ -407,7 +400,7 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
         // Update password
-        await collection.updateOne(
+        await db.collection(collectionName).updateOne(
             { NIC: targetNIC },
             {
                 $set: {
@@ -439,9 +432,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
 
-        const candidate = await collection.findOne(
+        const { candidate } = await findCandidateInCollections(db, 
             { _id: new ObjectId(req.user.id) },
             {
                 projection: {
@@ -543,7 +535,16 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
+
+        // Find candidate to know which collection to update
+        const { candidate, collectionName } = await findCandidateInCollections(db, { NIC: NIC });
+
+        if (!candidate) {
+            return res.status(404).json({
+                success: false,
+                message: 'Candidate not found'
+            });
+        }
 
         // Create update object
         const updateOperation = {
@@ -564,7 +565,7 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
             updateOperation.$inc = { check_results_button_clicks_count: 1 };
         }
 
-        const result = await collection.updateOne(
+        const result = await db.collection(collectionName).updateOne(
             { NIC: NIC },
             updateOperation
         );
@@ -607,10 +608,9 @@ router.get('/results', authenticateToken, async (req, res) => {
         await client.connect();
 
         const db = client.db(dbName);
-        const collection = db.collection(candidateCollection);
 
-        // Fixed query to use correct field name
-        const candidateDoc = await collection.findOne({ NIC: candidateNIC });
+        // Fixed query to use correct field name across collections
+        const { candidate: candidateDoc, collectionName } = await findCandidateInCollections(db, { NIC: candidateNIC });
 
         if (!candidateDoc) {
             console.log(`Candidate not found: ${candidateNIC}`);
@@ -631,7 +631,7 @@ router.get('/results', authenticateToken, async (req, res) => {
 
         // Track result check count
         const checkResultsCount = candidateDoc.check_results_button_clicks_count || 0;
-        await collection.updateOne(
+        await db.collection(collectionName).updateOne(
             { NIC: candidateNIC },
             {
                 $set: {
