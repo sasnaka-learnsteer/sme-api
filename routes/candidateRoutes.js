@@ -29,11 +29,11 @@ router.post('/check-nic', async (req, res) => {
         const db = client.db(dbName);
         const collection = db.collection(candidateCollection);
 
-        let candidate = await collection.findOne({ NIC });
+        let candidate = await collection.findOne({ NIC: NIC });
 
         // Also check sme26registrations if not found in the primary collection
         if (!candidate) {
-            candidate = await db.collection('sme26registrations').findOne({ NIC });
+            candidate = await db.collection('sme26registrations').findOne({ NIC:NIC });
         }
 
         await client.close();
@@ -183,7 +183,7 @@ router.post('/signup', async (req, res) => {
         const collection = db.collection('sme26registrations');
 
         // Check if candidate already exists
-        let existingCandidate = await collection.findOne({ NIC });
+        let existingCandidate = await collection.findOne({ NIC: NIC });
         if (!existingCandidate) {
             existingCandidate = await db.collection(candidateCollection).findOne({ NIC: NIC });
         }
@@ -201,7 +201,7 @@ router.post('/signup', async (req, res) => {
 
             // Update candidate with password (create MySME account)
             await collection.updateOne(
-                { NIC },
+                { NIC: NIC },
                 {
                     $set: {
                         password: hashedPassword,
@@ -262,11 +262,11 @@ router.post('/login', async (req, res) => {
         let candidate;
 
         // First, check sme26registrations
-        candidate = await db.collection('sme26registrations').findOne({ NIC });
+        candidate = await db.collection('sme26registrations').findOne({ NIC: NIC });
 
         // If not found, check sme25registrations
         if (!candidate) {
-            candidate = await db.collection(candidateCollection).findOne({ NIC });
+            candidate = await db.collection(candidateCollection).findOne({ NIC: NIC });
         }
 
         if (candidate && candidate.password) {
