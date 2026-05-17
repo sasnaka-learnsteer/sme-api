@@ -485,6 +485,10 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 candidate["School"] = candidate["School "];
             }
             
+            if (!candidate.examIndexNumber && !candidate.qrCodeData && !candidate.qrCode) {
+                candidate.myExamInfoMessage = "Index number and QR code will be generated appear here within few hours.";
+            }
+            
             return res.json({ success: true, candidate });
         }
 
@@ -516,6 +520,10 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     "School ": d.school,
                     "Subject Stream": d.stream,
                 };
+
+                if (!externalCandidate.examIndexNumber && !externalCandidate.qrCodeData && !externalCandidate.qrCode) {
+                    externalCandidate.myExamInfoMessage = "Index number and QR code will be generated appear here within few hours.";
+                }
 
                 return res.json({
                     success: true,
