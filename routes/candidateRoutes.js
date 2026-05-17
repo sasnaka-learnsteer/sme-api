@@ -48,10 +48,14 @@ router.post('/check-nic', async (req, res) => {
             // Check if the candidate has a MySME account (has password field)
             const hasMySmeAccount = !!candidate.password;
 
+            // Handle different field names across the different collections
+            const firstName = candidate['First Name'] || candidate.firstName || (candidate['Full Name'] ? candidate['Full Name'].split(' ')[0] : '');
+
             return res.json({
                 success: true,
                 exists: true,
-                hasMySmeAccount: hasMySmeAccount
+                hasMySmeAccount: hasMySmeAccount,
+                firstName: firstName
             });
         } else {
             // Fallback: Check external API
@@ -111,8 +115,8 @@ router.post('/register', async (req, res) => {
     const NIC = req.body['NIC'] || req.body.nic;
     const whatsappNumber = req.body['WhatsApp Number'] || req.body.whatsappNumber;
     const school = req.body['School'] || req.body.school;
-    const alBatch = req.body['A/L Batch'] || req.body.alBatch;
-    const alAttempt = req.body['A/L Attempt'] || req.body.alAttempt;
+    const alBatch = req.body['AL Batch'] || req.body.alBatch;
+    const alAttempt = req.body['AL Attempt'] || req.body.alAttempt;
     const subjectStream = req.body['Subject Stream'] || req.body.subjectStream;
     const medium = req.body['Medium'] || req.body.medium;
     const district = req.body['District'] || req.body.district;
@@ -439,6 +443,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 projection: {
                     NIC: 1,
                     "Full Name": 1,
+                    "First Name": 1,
+                    "Last Name": 1,
                     "School ": 1,
                     "Subject Stream": 1,
                     confirmed_papers: 1,
@@ -459,6 +465,18 @@ router.get('/profile', authenticateToken, async (req, res) => {
         client = null;
 
         if (candidate) {
+            // Construct Full Name if not present
+            if (!candidate["Full Name"]) {
+                candidate["Full Name"] = `${candidate["First Name"] || ''} ${candidate["Last Name"] || ''}`.trim();
+            }
+            
+            // Handle School fields (some collections have trailing space, some don't)
+            if (!candidate["School "] && candidate["School"]) {
+                candidate["School "] = candidate["School"];
+            } else if (!candidate["School"] && candidate["School "]) {
+                candidate["School"] = candidate["School "];
+            }
+            
             return res.json({ success: true, candidate });
         }
 
