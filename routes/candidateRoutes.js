@@ -24,6 +24,13 @@ async function findCandidateInCollections(db, query, projection = {}) {
     return { candidate: null, collectionName: null };
 }
 
+function getSriLankaTime() {
+    const d = new Date();
+    const utcTime = d.getTime();
+    const slTime = new Date(utcTime + (5.5 * 60 * 60 * 1000));
+    return slTime.toISOString().replace('Z', '+05:30');
+}
+
 // Backend implementation for MySME API endpoints
 
 // 1. Verify if NIC exists in the database
@@ -156,7 +163,7 @@ router.post('/register', async (req, res) => {
             'Medium': medium,
             'District': district,
             'Preferred Exam Center': preferredExamCenter,
-            createdAt: new Date()
+            createdAt: getSriLankaTime()
         };
 
         await db.collection('sme26registrations').insertOne(newRegistration);
@@ -210,7 +217,7 @@ router.post('/signup', async (req, res) => {
                 {
                     $set: {
                         password: hashedPassword,
-                        lastUpdated: new Date()
+                        lastUpdated: getSriLankaTime()
                     }
                 }
             );
@@ -235,8 +242,8 @@ router.post('/signup', async (req, res) => {
             const newCandidate = {
                 NIC,
                 password: hashedPassword,
-                createdAt: new Date(),
-                lastUpdated: new Date()
+                createdAt: getSriLankaTime(),
+                lastUpdated: getSriLankaTime()
             };
 
             // await collection.insertOne(newCandidate);
@@ -409,7 +416,7 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
             {
                 $set: {
                     password: hashedPassword,
-                    lastUpdated: new Date()
+                    lastUpdated: getSriLankaTime()
                 },
                 $push: {
                     usedResetTokens: req.token
@@ -573,7 +580,7 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
                     survey_achievements: achievements,
                     survey_volunteering_interest_ok: volunteeringInterest,
                     survey_volunteering_interests: interests,
-                    survey_completed_at: new Date(),
+                    survey_completed_at: getSriLankaTime(),
                     check_results_button_click_complete: check_results_button_click_complete
                 },
             }
@@ -655,7 +662,7 @@ router.get('/results', authenticateToken, async (req, res) => {
             {
                 $set: {
                     check_results_button_clicks_count: checkResultsCount + 1,
-                    last_results_check_at: new Date()
+                    last_results_check_at: getSriLankaTime()
                 }
             }
         );
