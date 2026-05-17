@@ -446,6 +446,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     "First Name": 1,
                     "Last Name": 1,
                     "School ": 1,
+                    "School": 1,
                     "Subject Stream": 1,
                     confirmed_papers: 1,
                     // qrCodeData: 1,
