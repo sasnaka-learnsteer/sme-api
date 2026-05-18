@@ -522,7 +522,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 };
 
                 if (!externalCandidate.examIndexNumber && !externalCandidate.qrCodeData && !externalCandidate.qrCode) {
-                    externalCandidate.myExamInfoMessage = "Index number and QR code will be generated appear here within few hours.";
+                    externalCandidate.myExamInfoMessage = "Index number and qr code generated will appear here within few hours";
                 }
 
                 return res.json({
