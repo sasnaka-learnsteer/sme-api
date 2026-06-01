@@ -41,5 +41,9 @@ module.exports = {
 
     // External APIs
     EXTERNAL_SS_QUIZ_API_URL: process.env.EXTERNAL_SS_QUIZ_API_URL,
-    EXTERNAL_SS_QUIZ_API_KEY: process.env.EXTERNAL_SS_QUIZ_API_KEY
+    EXTERNAL_SS_QUIZ_API_KEY: process.env.EXTERNAL_SS_QUIZ_API_KEY,
+
+    // Azure Email / OTP Configuration
+    AZURE_EMAIL_ENDPOINT: process.env.AZURE_EMAIL_ENDPOINT,
+    AZURE_EMAIL_API_KEY: process.env.AZURE_EMAIL_API_KEY
 };

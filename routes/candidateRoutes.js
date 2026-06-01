@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { MongoClient, ObjectId } = require('mongodb');
 const { authenticateToken } = require('../middleware/auth');
 const env = require('../config/env');
+const { sendEmailOtp } = require('../services/emailService');
 
 const mongoURI = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
@@ -754,6 +755,159 @@ router.post('/b2b-tickets', authenticateToken, async (req, res) => {
         }
         console.error('Error calling external B2B tickets API:', error.message);
         return res.status(500).json({ success: false, message: 'Server error while fetching B2B tickets' });
+    }
+});
+
+// Send OTP to candidate's registered email
+router.post('/send-otp', authenticateToken, async (req, res) => {
+    const NIC = req.user.NIC;
+
+    if (!NIC) {
+        return res.status(400).json({ success: false, message: 'NIC is missing from token' });
+    }
+
+    let client;
+    try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+
+        const db = client.db(dbName);
+
+        // Find candidate across collections to get their email address
+        const { candidate } = await findCandidateInCollections(db, { NIC: NIC });
+
+        if (!candidate) {
+            await client.close();
+            return res.status(404).json({ success: false, message: 'Candidate with this NIC not found' });
+        }
+
+        const email = candidate['Email Address'] || candidate.emailAddress || candidate.email;
+
+        if (!email) {
+            await client.close();
+            return res.status(400).json({ success: false, message: 'No registered email address found for this candidate' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiration
+
+        // Store OTP in database (upsert to overwrite previous OTPs for this NIC)
+        await db.collection('mysme_otps').updateOne(
+            { NIC: NIC },
+            {
+                $set: {
+                    NIC: NIC,
+                    email: email,
+                    otp: otp,
+                    expiresAt: expiresAt,
+                    used: false,
+                    createdAt: new Date()
+                }
+            },
+            { upsert: true }
+        );
+
+        await client.close();
+        client = null;
+
+        // Send Email
+        await sendEmailOtp(email, otp);
+
+        // Obfuscate email for privacy (e.g. ab***@gmail.com)
+        const obfuscateEmail = (emailStr) => {
+            if (!emailStr) return '';
+            const [local, domain] = emailStr.split('@');
+            if (!domain) return emailStr;
+            const visibleLocal = local.length > 2 ? local.substring(0, 2) + '*'.repeat(local.length - 2) : local + '*';
+            return `${visibleLocal}@${domain}`;
+        };
+
+        return res.json({
+            success: true,
+            message: 'OTP sent successfully',
+            email: obfuscateEmail(email)
+        });
+
+    } catch (error) {
+        console.error('Error in send-otp:', error);
+        return res.status(500).json({ success: false, message: 'Server error while sending OTP' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
+    }
+});
+
+// Verify candidate OTP and generate password reset token
+router.post('/verify-otp', authenticateToken, async (req, res) => {
+    const NIC = req.user.NIC;
+    const { otp } = req.body;
+
+    if (!NIC || !otp) {
+        return res.status(400).json({ success: false, message: 'NIC (from token) and OTP are required' });
+    }
+
+    let client;
+    try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+
+        const db = client.db(dbName);
+
+        // Find active OTP record
+        const otpRecord = await db.collection('mysme_otps').findOne({
+            NIC: NIC,
+            otp: otp,
+            used: false
+        });
+
+        if (!otpRecord) {
+            await client.close();
+            return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+        }
+
+        // Check expiration
+        if (new Date() > new Date(otpRecord.expiresAt)) {
+            await client.close();
+            return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
+        }
+
+        // Mark OTP as used
+        await db.collection('mysme_otps').updateOne(
+            { _id: otpRecord._id },
+            { $set: { used: true } }
+        );
+
+        // Find candidate details to generate reset token
+        const { candidate } = await findCandidateInCollections(db, { NIC: NIC });
+
+        if (!candidate) {
+            await client.close();
+            return res.status(404).json({ success: false, message: 'Candidate not found' });
+        }
+
+        // Generate reset token valid for 15 minutes
+        const resetToken = jwt.sign(
+            { id: candidate._id.toString(), NIC: candidate.NIC, isResetToken: true },
+            env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        await client.close();
+        return res.json({
+            success: true,
+            message: 'OTP verified successfully',
+            resetToken: resetToken
+        });
+
+    } catch (error) {
+        console.error('Error in verify-otp:', error);
+        return res.status(500).json({ success: false, message: 'Server error while verifying OTP' });
+    } finally {
+        if (client) {
+            await client.close();
+        }
     }
 });
 
