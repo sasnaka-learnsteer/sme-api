@@ -1,6 +1,6 @@
 # SME API — Backend Server
 
-Backend API server for the **Sasnaka SME (Sri Lanka Mathematical Examination)** platform. It handles candidate registration sync, admin panel management, exam index number generation, QR code generation, WhatsApp notifications, real-time dashboard updates via WebSocket, and scheduled data jobs.
+Backend API server for the **SME (Sasnaka Mock Exam)** platform. It handles candidate registration sync, admin panel management, exam index number generation, QR code generation, WhatsApp notifications, real-time dashboard updates via WebSocket, and scheduled data jobs.
 
 ---
 
