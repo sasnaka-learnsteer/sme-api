@@ -72,3 +72,6 @@ jspm_packages/
 
 # Function deployment packages
 function.zip
+
+# Example env file (contains sensitive structure)
+.env.example
