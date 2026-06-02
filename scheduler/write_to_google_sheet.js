@@ -3,7 +3,7 @@ const { MongoClient } = require('mongodb');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 const OpenAI = require('openai');
-const {MONGODB_DB, MONGODB_COLLECTION} = require("../config/env");
+const {MONGODB_DB, MONGODB_COLLECTION, GOOGLE_SERVICE_ACCOUNT_KEY} = require("../config/env");
 
 class RegisteredDataScheduler {
   constructor() {
@@ -16,7 +16,8 @@ class RegisteredDataScheduler {
 
   async initGoogleSheets() {
     const serviceAccountAuth = new JWT({
-      keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+      email: GOOGLE_SERVICE_ACCOUNT_KEY.client_email,
+      key: GOOGLE_SERVICE_ACCOUNT_KEY.private_key,
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 

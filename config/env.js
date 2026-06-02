@@ -5,12 +5,14 @@ const dotenv = require('dotenv');
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-// Handle Google Service Account Key for both local and Heroku deployment
-let googleServiceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-
-// If running on Heroku, use the JSON string from environment variable
-if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    googleServiceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+// Handle Google Service Account Key - parse JSON string from env var into a credentials object
+// Works for both local .env and Heroku config vars
+let googleServiceAccountKey;
+try {
+    googleServiceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+} catch (e) {
+    console.error('Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:', e.message);
+    googleServiceAccountKey = null;
 }
 
 // Export the environment variables

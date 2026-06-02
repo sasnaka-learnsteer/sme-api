@@ -15,7 +15,7 @@ async function diagnoseDataSync() {
         // Step 2: Test Google Sheets authentication
         console.log('\n🔑 STEP 2: Authentication Test');
         const auth = new google.auth.GoogleAuth({
-            keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
+            credentials: env.GOOGLE_SERVICE_ACCOUNT_KEY,
             scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
         });
 

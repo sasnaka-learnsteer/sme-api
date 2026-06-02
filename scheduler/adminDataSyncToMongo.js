@@ -7,7 +7,7 @@ async function fetchAdminSheetData() {
     console.log('Starting Admin data fetch from Gsheet...');
 
     const auth = new google.auth.GoogleAuth({
-        keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
+        credentials: env.GOOGLE_SERVICE_ACCOUNT_KEY,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 

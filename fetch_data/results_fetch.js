@@ -10,7 +10,7 @@ async function fetchExamResultsData() {
     console.log('Starting Exam Results data fetch from Google Sheet...');
 
     const auth = new google.auth.GoogleAuth({
-        keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
+        credentials: env.GOOGLE_SERVICE_ACCOUNT_KEY,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
