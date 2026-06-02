@@ -7,7 +7,7 @@ async function fetchSheetData() {
     console.log('Starting Candidates data fetch from Candidate Outreach team - GSheet...');
 
     const auth = new google.auth.GoogleAuth({
-        keyFile: env.GOOGLE_SERVICE_ACCOUNT_KEY,
+        credentials: env.GOOGLE_SERVICE_ACCOUNT_KEY,
         scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
