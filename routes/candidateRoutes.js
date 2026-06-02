@@ -490,6 +490,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 candidate.myExamInfoMessage = "Index number and QR code will be generated appear here within few hours.";
             }
             
+            candidate.your_exam_center = "🔒 Still being finalized — stay tuned!";
+            
             return res.json({ success: true, candidate });
         }
 
@@ -525,6 +527,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 if (!externalCandidate.examIndexNumber && !externalCandidate.qrCodeData && !externalCandidate.qrCode) {
                     externalCandidate.myExamInfoMessage = "Index number and qr code generated will appear here within few hours";
                 }
+
+                externalCandidate.your_exam_center = "🔒 Still being finalized — stay tuned!";
 
                 return res.json({
                     success: true,
