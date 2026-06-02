@@ -487,7 +487,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
             }
             
             if (!candidate.examIndexNumber && !candidate.qrCodeData && !candidate.qrCode) {
-                candidate.myExamInfoMessage = "Index number and QR code will be generated appear here within few hours.";
+                candidate.myExamInfoMessage = "🎯 Your exam index number & QR code are being prepared — check back soon!";
             }
             
             candidate.your_exam_center = "🔒 Still being finalized — stay tuned!";
