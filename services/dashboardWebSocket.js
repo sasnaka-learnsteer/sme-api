@@ -19,7 +19,7 @@ function initializeWebSocket(server) {
         noServer: true,
         verifyClient: (info) => {
             const url = new URL(info.req.url, `https://${info.req.headers.host}`);
-            const token = url.searchParams.get('token');
+            const token = (url.searchParams.get('token') || '').trim();
 
             try {
                 jwt.verify(token, process.env.JWT_SECRET);
