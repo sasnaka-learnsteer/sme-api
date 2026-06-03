@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
+const mongoose = require('mongoose');
 require('dotenv').config();
 const { initScheduler } = require('./scheduler');
 const { initializeWebSocket } = require('./services/dashboardWebSocket');
@@ -87,9 +88,18 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} (REST + WebSocket)`);
-  initScheduler().catch(err => {
-    console.error('Scheduler initialization failed — server continues running:', err);
+// Connect Mongoose (required by CandidateModel used in dashboardWebSocket)
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('Mongoose connected to MongoDB');
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} (REST + WebSocket)`);
+      initScheduler().catch(err => {
+        console.error('Scheduler initialization failed — server continues running:', err);
+      });
+    });
+  })
+  .catch(err => {
+    console.error('Mongoose connection failed:', err);
+    process.exit(1);
   });
-});
