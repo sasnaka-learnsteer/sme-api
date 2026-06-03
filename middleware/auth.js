@@ -17,7 +17,15 @@ const authenticateToken = (req, res, next) => {
         // Verify token using the env module's JWT_SECRET
         jwt.verify(token, env.JWT_SECRET, (err, decoded) => {
             if (err) {
-                console.error('Token verification failed:', err);
+                if (err.name === 'TokenExpiredError') {
+                    console.log(`[Auth] Token expired at ${err.expiredAt}`);
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Token expired'
+                    });
+                }
+                
+                console.error('[Auth] Token verification failed:', err.message);
                 return res.status(403).json({
                     success: false,
                     message: 'Invalid or expired token'
@@ -27,6 +35,7 @@ const authenticateToken = (req, res, next) => {
             // Attach decoded user data to request
             req.user = {
                 NIC: decoded.NIC,
+                email: decoded.email,
                 id: decoded.id,
                 role: decoded.role,
                 isResetToken: decoded.isResetToken

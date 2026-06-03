@@ -36,7 +36,7 @@ function getSriLankaTime() {
 
 // 1. Verify if NIC exists in the database
 router.post('/check-nic', async (req, res) => {
-    console.log(`[API] /check-nic called for NIC: ${req.body.NIC}`);
+    console.log(`[API] /check-nic called for User: ${req.body.email || req.body.NIC}`);
     const { NIC } = req.body;
 
     if (!NIC) {
@@ -191,7 +191,7 @@ router.post('/register', async (req, res) => {
 
 // Signup for a MySME account
 router.post('/signup', async (req, res) => {
-    console.log(`[API] /signup called for NIC: ${req.body.NIC}`);
+    console.log(`[API] /signup called for User: ${req.body.email || req.body.NIC}`);
     const { NIC, password } = req.body;
 
     if (!NIC || !password) {
@@ -231,7 +231,11 @@ router.post('/signup', async (req, res) => {
 
             // Create JWT token - Fixed to use consistent casing for NIC
             const token = jwt.sign(
-                { id: existingCandidate._id.toString(), NIC: existingCandidate.NIC },
+                { 
+                    id: existingCandidate._id.toString(), 
+                    NIC: existingCandidate.NIC,
+                    email: existingCandidate['Email Address'] || existingCandidate.emailAddress || existingCandidate.email 
+                },
                 env.JWT_SECRET,  // Using env module's JWT_SECRET
                 { expiresIn: '24h' }
             );
@@ -266,7 +270,7 @@ router.post('/signup', async (req, res) => {
 
 // Login to MySME account
 router.post('/login', async (req, res) => {
-    console.log(`[API] /login called for NIC: ${req.body.NIC}`);
+    console.log(`[API] /login called for User: ${req.body.email || req.body.NIC}`);
     const { NIC, password } = req.body;
 
     if (!NIC || !password) {
@@ -288,7 +292,12 @@ router.post('/login', async (req, res) => {
 
             if (!isMatch) {
                 const resetToken = jwt.sign(
-                    { id: candidate._id.toString(), NIC: candidate.NIC, isResetToken: true },
+                    { 
+                        id: candidate._id.toString(), 
+                        NIC: candidate.NIC,
+                        email: candidate['Email Address'] || candidate.emailAddress || candidate.email,
+                        isResetToken: true 
+                    },
                     env.JWT_SECRET,
                     { expiresIn: '15m' }
                 );
@@ -298,7 +307,11 @@ router.post('/login', async (req, res) => {
 
             // Create JWT token
             const token = jwt.sign(
-                { id: candidate._id.toString(), NIC: candidate.NIC },
+                { 
+                    id: candidate._id.toString(), 
+                    NIC: candidate.NIC,
+                    email: candidate['Email Address'] || candidate.emailAddress || candidate.email 
+                },
                 env.JWT_SECRET,
                 { expiresIn: '24h' }
             );
@@ -335,8 +348,13 @@ router.post('/login', async (req, res) => {
                     // Determine ID: use existing candidate ID or generate a new one
                     const userId = candidate ? candidate._id : new ObjectId();
 
+                    // Create JWT token for regular login
                     const token = jwt.sign(
-                        { id: userId.toString(), NIC: NIC },
+                        { 
+                            id: userId.toString(), 
+                            NIC: NIC,
+                            email: candidate ? (candidate['Email Address'] || candidate.emailAddress || candidate.email) : null
+                        },
                         env.JWT_SECRET,
                         { expiresIn: '24h' }
                     );
@@ -381,7 +399,7 @@ router.post('/login', async (req, res) => {
 
 // Reset candidate password
 router.post('/reset-password', authenticateToken, async (req, res) => {
-    console.log(`[API] /reset-password called for user: ${req.user.NIC}`);
+    console.log(`[API] /reset-password called for user: ${req.user.email || req.user.NIC}`);
     // Evaluate whether it's a reset token
     if (!req.user.isResetToken) {
         return res.status(403).json({ success: false, message: 'Invalid token type for password reset. A specific reset token is required.' });
@@ -450,7 +468,7 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
 
 // Get candidate profile
 router.get('/profile', authenticateToken, async (req, res) => {
-    console.log(`[API] /profile called for user: ${req.user.NIC}`);
+    console.log(`[API] /profile called for user: ${req.user.email || req.user.NIC}`);
     let client;
     try {
         client = new MongoClient(mongoURI);
@@ -597,7 +615,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
 
 // Update candidate profile — set final_exam_center (only when exam_center_confirmed is false)
 router.post('/update_profile', authenticateToken, async (req, res) => {
-    console.log(`[API] /update_profile called for user: ${req.user.NIC}`);
+    console.log(`[API] /update_profile called for user: ${req.user.email || req.user.NIC}`);
     const { final_exam_center } = req.body;
 
     if (!final_exam_center || typeof final_exam_center !== 'string' || !final_exam_center.trim()) {
@@ -667,7 +685,7 @@ router.post('/update_profile', authenticateToken, async (req, res) => {
 
 // Update candidate survey results
 router.post('/update-survey', authenticateToken, async (req, res) => {
-    console.log(`[API] /update-survey called for user: ${req.user.NIC}`);
+    console.log(`[API] /update-survey called for user: ${req.user.email || req.user.NIC}`);
     const {
         extraCurricular,
         achievements,
@@ -742,7 +760,7 @@ router.post('/update-survey', authenticateToken, async (req, res) => {
 
 // Get candidate results
 router.get('/results', authenticateToken, async (req, res) => {
-    console.log(`[API] /results called for user: ${req.user.NIC}`);
+    console.log(`[API] /results called for user: ${req.user.email || req.user.NIC}`);
     const startTime = Date.now();
     let client;
 
@@ -836,7 +854,7 @@ router.get('/results', authenticateToken, async (req, res) => {
 
 // Get B2B tickets from external SS Quiz API
 router.post('/b2b-tickets', authenticateToken, async (req, res) => {
-    console.log(`[API] /b2b-tickets called for user: ${req.user.NIC}`);
+    console.log(`[API] /b2b-tickets called for user: ${req.user.email || req.user.NIC}`);
     const { nic } = req.body;
 
     if (!nic) {
@@ -880,7 +898,7 @@ router.post('/b2b-tickets', authenticateToken, async (req, res) => {
 
 // Send OTP to candidate's registered email
 router.post('/send-otp', authenticateToken, async (req, res) => {
-    console.log(`[API] /send-otp called for user: ${req.user.NIC}`);
+    console.log(`[API] /send-otp called for user: ${req.user.email || req.user.NIC}`);
     const NIC = req.user.NIC;
 
     if (!NIC) {
@@ -962,7 +980,7 @@ router.post('/send-otp', authenticateToken, async (req, res) => {
 
 // Verify candidate OTP and generate password reset token
 router.post('/verify-otp', authenticateToken, async (req, res) => {
-    console.log(`[API] /verify-otp called for user: ${req.user.NIC}`);
+    console.log(`[API] /verify-otp called for user: ${req.user.email || req.user.NIC}`);
     const NIC = req.user.NIC;
     const { otp } = req.body;
 
