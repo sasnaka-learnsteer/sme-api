@@ -3,7 +3,7 @@
 // Run: node scripts/insertExamCenters.js
 
 const { MongoClient } = require('mongodb');
-const { MONGODB_URI, MONGODB_DB } = require('../config/env');
+const { MONGODB_URI, MONGODB_DB } = require('../../config/env');
 
 const EXAM_CENTERS_COLLECTION = 'sme26examcenters';
 
