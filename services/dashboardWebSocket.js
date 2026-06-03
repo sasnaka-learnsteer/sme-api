@@ -1,6 +1,6 @@
 // services/dashboardWebSocket.js
 const WebSocket = require('ws');
-const CandidateModel = require('../models/Candidate');
+const mongoPool = require('./mongoConnectionPool');
 const jwt = require('jsonwebtoken');
 
 let wss;
@@ -16,11 +16,10 @@ function initializeWebSocket(server) {
         return;
     }
     wss = new WebSocket.Server({
-        server,
-        path: '/ws/dashboard',
+        noServer: true,
         verifyClient: (info) => {
             const url = new URL(info.req.url, `https://${info.req.headers.host}`);
-            const token = url.searchParams.get('token');
+            const token = (url.searchParams.get('token') || '').trim();
 
             try {
                 jwt.verify(token, process.env.JWT_SECRET);
@@ -28,7 +27,6 @@ function initializeWebSocket(server) {
             } catch (error) {
                 return false;
             }
-            // return true;
         }
     });
 
@@ -45,45 +43,37 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        const centers = ['Colombo', 'Kandy', 'Galle'];
-        const result = {};
-
-        // Use aggregation pipeline for efficient single query instead of multiple queries
-        const aggregationResult = await CandidateModel.aggregate([
-            {
-                $match: {
-                    'Preferred Exam Center': { $in: centers }
-                }
-            },
+        const COLLECTIONS = ['sme26registrations'];
+        const pipeline = [
             {
                 $group: {
-                    _id: {
-                        center: '$Preferred Exam Center',
-                        status: '$participation_status'
-                    },
+                    _id: '$Preferred Exam Center',
                     count: { $sum: 1 }
                 }
             }
-        ]);
+        ];
 
-        // Initialize result structure
-        centers.forEach(center => {
-            const centerKey = center.toLowerCase();
-            result[centerKey] = { total: 0, confirmed: 0, rejected: 0, not_reachable: 0 };
-        });
+        // Run aggregation on both collections in parallel
+        const results = await Promise.all(
+            COLLECTIONS.map(name => mongoPool.getCollection(name)
+                .then(col => col.aggregate(pipeline).toArray())
+            )
+        );
 
-        // Process aggregation results
-        aggregationResult.forEach(item => {
-            const centerKey = item._id.center.toLowerCase();
-            const status = item._id.status || 'unknown';
-
-            if (result[centerKey]) {
-                result[centerKey].total += item.count;
-                if (result[centerKey][status] !== undefined) {
-                    result[centerKey][status] = item.count;
-                }
+        // Merge counts across both collections by center name
+        const centerMap = new Map();
+        for (const colResult of results) {
+            for (const item of colResult) {
+                if (!item._id) continue; // skip null / empty
+                const prev = centerMap.get(item._id) || 0;
+                centerMap.set(item._id, prev + item.count);
             }
-        });
+        }
+
+        // Sort alphabetically and shape into { center, count } array
+        const result = Array.from(centerMap.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([center, count]) => ({ center, count }));
 
         // Cache the result
         cachedDashboardData = result;
@@ -92,7 +82,7 @@ async function calculateDashboardData() {
         return result;
     } catch (error) {
         console.error('Error calculating dashboard data:', error);
-        return cachedDashboardData || null; // Return cached data on error
+        return cachedDashboardData || null;
     }
 }
 
@@ -147,8 +137,13 @@ function closeWebSocket() {
 
 
 
+function getDashboardWss() {
+    return wss;
+}
+
 module.exports = {
     initializeWebSocket,
     broadcastDashboardUpdate,
-    closeWebSocket
+    closeWebSocket,
+    getDashboardWss
 };
