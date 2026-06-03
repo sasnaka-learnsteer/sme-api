@@ -1,6 +1,6 @@
 // services/dashboardWebSocket.js
 const WebSocket = require('ws');
-const CandidateModel = require('../models/Candidate');
+const mongoPool = require('./mongoConnectionPool');
 const jwt = require('jsonwebtoken');
 
 let wss;
@@ -43,29 +43,37 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        // Aggregate count per exam center — works for any center values in the DB
-        const aggregationResult = await CandidateModel.aggregate([
-            {
-                $match: {
-                    'Preferred Exam Center': { $exists: true, $ne: null, $ne: '' }
-                }
-            },
+        const COLLECTIONS = ['sme25registrations', 'sme26registrations'];
+        const pipeline = [
             {
                 $group: {
                     _id: '$Preferred Exam Center',
                     count: { $sum: 1 }
                 }
-            },
-            {
-                $sort: { _id: 1 } // alphabetical by center name
             }
-        ]);
+        ];
 
-        // Shape into array of { center, count } objects
-        const result = aggregationResult.map(item => ({
-            center: item._id,
-            count: item.count
-        }));
+        // Run aggregation on both collections in parallel
+        const results = await Promise.all(
+            COLLECTIONS.map(name => mongoPool.getCollection(name)
+                .then(col => col.aggregate(pipeline).toArray())
+            )
+        );
+
+        // Merge counts across both collections by center name
+        const centerMap = new Map();
+        for (const colResult of results) {
+            for (const item of colResult) {
+                if (!item._id) continue; // skip null / empty
+                const prev = centerMap.get(item._id) || 0;
+                centerMap.set(item._id, prev + item.count);
+            }
+        }
+
+        // Sort alphabetically and shape into { center, count } array
+        const result = Array.from(centerMap.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([center, count]) => ({ center, count }));
 
         // Cache the result
         cachedDashboardData = result;
@@ -74,7 +82,7 @@ async function calculateDashboardData() {
         return result;
     } catch (error) {
         console.error('Error calculating dashboard data:', error);
-        return cachedDashboardData || null; // Return cached data on error
+        return cachedDashboardData || null;
     }
 }
 
