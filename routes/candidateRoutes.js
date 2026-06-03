@@ -558,10 +558,10 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 };
 
                 if (!externalCandidate.examIndexNumber && !externalCandidate.qrCodeData && !externalCandidate.qrCode) {
-                    externalCandidate.myExamInfoMessage = "Index number and qr code generated will appear here within few hours";
+                    externalCandidate.myExamInfoMessage = "Index number and qr code generated will appear here by 4th of June 6pm";
                 }
 
-                externalCandidate.your_exam_center = "🔒 Still being finalized — stay tuned!";
+                externalCandidate.your_exam_center = "Still being finalized — stay tuned!";
 
                 return res.json({
                     success: true,
