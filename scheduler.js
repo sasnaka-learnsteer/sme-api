@@ -46,25 +46,41 @@ const initScheduler = async () => {
     console.log('[CRON JOB] index number generation & QR code generation is started. Will run daily at 01:00.');
 
     // Run at startup (one-time run)
-    console.log('cleanCollection() & cleanAdminCollection() is STARTED [ONE time RUN at START]');
-    await cleanCollection().then(() => console.log('cleanCollection() is FINISHED'));
-    await cleanAdminCollection().then(() => console.log('cleanAdminCollection() is FINISHED'));
+    try {
+        console.log('cleanCollection() & cleanAdminCollection() is STARTED [ONE time RUN at START]');
+        await cleanCollection();
+        console.log('cleanCollection() is FINISHED');
+        await cleanAdminCollection();
+        console.log('cleanAdminCollection() is FINISHED');
+    } catch (error) {
+        console.error('Startup task failed [cleanCollection / cleanAdminCollection]:', error);
+    }
 
-    console.log('syncData() is STARTED [ONE time RUN at START]');
-    await syncData().then(async () => {
+    try {
+        console.log('syncData() is STARTED [ONE time RUN at START]');
+        await syncData();
         console.log('syncData() is FINISHED. Starting other jobs...');
-        await syncAdminData().then(() => console.log('syncAdminData() is FINISHED'));
+        await syncAdminData();
+        console.log('syncAdminData() is FINISHED');
+    } catch (error) {
+        console.error('Startup task failed [syncData / syncAdminData]:', error);
+    }
+
+    try {
         console.log('STARTING Index number generation [ONE time RUN at START]');
-        await updateExamIndexNumbers().then(() => console.log('FINISHED Index number generation [ONE time RUN at START]'));
+        await updateExamIndexNumbers();
+        console.log('FINISHED Index number generation [ONE time RUN at START]');
+    } catch (error) {
+        console.error('Startup task failed [updateExamIndexNumbers]:', error);
+    }
 
-        console.log('Assign Candidates to Panel Members [ONE time RUN at START] - TURNED OFF now');
-        // console.log('Assign Candidates to Panel Members is STARTED [ONE time RUN at START]');
-        // assignCandidatesToPanelMembers();
-        // console.log('Assign Candidates to Panel Members is FINISHED');
-
+    try {
         console.log('Generate QR code for candidates is STARTED [ONE time RUN at START]');
-        await generateAndStoreQRCodes().then(() => console.log('Generate QR code for candidates is FINISHED'));
-    });
+        await generateAndStoreQRCodes();
+        console.log('Generate QR code for candidates is FINISHED');
+    } catch (error) {
+        console.error('Startup task failed [generateAndStoreQRCodes]:', error);
+    }
 
     console.log('Scheduler initialized successfully');
 };
