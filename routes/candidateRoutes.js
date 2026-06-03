@@ -7,6 +7,8 @@ const { MongoClient, ObjectId } = require('mongodb');
 const { authenticateToken } = require('../middleware/auth');
 const env = require('../config/env');
 const { sendEmailOtp } = require('../services/emailService');
+const { assignIndexNumber26 } = require('../services/indexNumberService');
+const { generateCandidateQRCode } = require('../services/qrCodeService');
 
 const mongoURI = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
@@ -490,17 +492,29 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     confirmed_papers: 1,
                     qrCodeData: 1,
                     "Preferred Exam Center": 1,
+                    final_exam_center: 1,
                     examIndexNumber: 1,
+                    examIndexNumber26: 1,
                     qrCode: 1,
                     attended_papers: 1,
                     attended_days: 1,
                     // _id: 1,
                     results_released: 1,
                     check_results_button_clicks_count: 1,
-                    exam_center_confirmed: 1
+                    exam_center_confirmed26: 1
                 }
             }
         );
+        let centerLocation = null;
+        if (candidate && candidate.exam_center_confirmed26 && candidate.final_exam_center) {
+            const centerDoc = await db.collection('sme26examcenters').findOne(
+                { center_name: candidate.final_exam_center.trim() },
+                { projection: { center_location: 1 } }
+            );
+            if (centerDoc && centerDoc.center_location) {
+                centerLocation = centerDoc.center_location;
+            }
+        }
 
         await client.close();
         client = null;
@@ -518,15 +532,24 @@ router.get('/profile', authenticateToken, async (req, res) => {
                 candidate["School"] = candidate["School "];
             }
             
+            // Assign examIndexNumber26 to examIndexNumber
+            if (candidate.examIndexNumber26) {
+                candidate.examIndexNumber = candidate.examIndexNumber26;
+            }
+            
             if (!candidate.examIndexNumber && !candidate.qrCodeData && !candidate.qrCode) {
                 candidate.myExamInfoMessage = "Your Index number and QR code will appear here by 4th of June 6pm";
             }
             
-            candidate.your_exam_center = "Still being finalized. Stay tuned!";
+            if (candidate.exam_center_confirmed26 && candidate.final_exam_center) {
+                candidate.your_exam_center = centerLocation || candidate.final_exam_center;
+            } else {
+                candidate.your_exam_center = "Still being finalized. Stay tuned!";
+            }
 
             // Exam center confirmation status
-            const examCenterConfirmed = candidate.exam_center_confirmed === true;
-            candidate.exam_center_confirmed = examCenterConfirmed;
+            const examCenterConfirmed = candidate.exam_center_confirmed26 === true;
+            candidate.exam_center_confirmed26 = examCenterConfirmed;
 
             if (!examCenterConfirmed) {
                 try {
@@ -613,7 +636,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     }
 });
 
-// Update candidate profile — set final_exam_center (only when exam_center_confirmed is false)
+// Update candidate profile — set final_exam_center (only when exam_center_confirmed26 is false)
 router.post('/update_profile', authenticateToken, async (req, res) => {
     console.log(`[API] /update_profile called for user: ${req.user.email || req.user.NIC}`);
     const { final_exam_center } = req.body;
@@ -637,11 +660,11 @@ router.post('/update_profile', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, message: `"${final_exam_center}" is not a valid exam center.` });
         }
 
-        // 2. Find the candidate across collections
+        // 2. Find the candidate across collections to check current status and stream
         const { candidate, collectionName } = await findCandidateInCollections(
             db,
             { _id: new ObjectId(req.user.id) },
-            { projection: { exam_center_confirmed: 1 } }
+            { projection: { exam_center_confirmed26: 1, 'Subject Stream': 1, NIC: 1 } }
         );
 
         if (!candidate) {
@@ -649,22 +672,50 @@ router.post('/update_profile', authenticateToken, async (req, res) => {
         }
 
         // 3. Block update if already confirmed
-        if (candidate.exam_center_confirmed === true) {
+        if (candidate.exam_center_confirmed26 === true) {
             return res.status(409).json({
                 success: false,
                 message: 'Exam center has already been confirmed and cannot be changed.'
             });
         }
 
-        // 4. Apply the update
+        // 3.5 Attempt to assign an index number via the service
+        const nic = candidate.NIC || req.user.NIC;
+        const assignedIndexNumber = await assignIndexNumber26(
+            db, 
+            final_exam_center, 
+            candidate['Subject Stream'], 
+            nic
+        );
+
+        // 4. Apply the update to the candidate document
+        const updateFields = {
+            final_exam_center: final_exam_center.trim(),
+            exam_center_confirmed26: true,
+            exam_center_confirmed26_at: getSriLankaTime()
+        };
+        
+        let qrCodeData = null;
+        let qrCode = null;
+        
+        if (assignedIndexNumber) {
+            updateFields.examIndexNumber26 = assignedIndexNumber;
+            
+            const qrResult = await generateCandidateQRCode(assignedIndexNumber, getSriLankaTime());
+            if (qrResult) {
+                qrCode = qrResult.qrCode;
+                qrCodeData = qrResult.qrCodeData;
+                
+                updateFields.qrCode = qrResult.qrCode;
+                updateFields.qrCodeData = qrResult.qrCodeData;
+                updateFields.qrCodeGeneratedAt = qrResult.qrCodeGeneratedAt;
+            }
+        }
+
         await db.collection(collectionName).updateOne(
             { _id: new ObjectId(req.user.id) },
             {
-                $set: {
-                    final_exam_center: final_exam_center.trim(),
-                    exam_center_confirmed: true,
-                    exam_center_confirmed_at: getSriLankaTime()
-                }
+                $set: updateFields
             }
         );
 
@@ -672,7 +723,9 @@ router.post('/update_profile', authenticateToken, async (req, res) => {
             success: true,
             message: 'Exam center confirmed successfully.',
             final_exam_center: final_exam_center.trim(),
-            exam_center_confirmed: true
+            exam_center_confirmed26: true,
+            examIndexNumber26: assignedIndexNumber || undefined,
+            qrCode: qrCode || undefined
         });
 
     } catch (error) {
