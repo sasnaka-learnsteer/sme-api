@@ -16,8 +16,7 @@ function initializeWebSocket(server) {
         return;
     }
     wss = new WebSocket.Server({
-        server,
-        path: '/ws/dashboard',
+        noServer: true,
         verifyClient: (info) => {
             const url = new URL(info.req.url, `https://${info.req.headers.host}`);
             const token = url.searchParams.get('token');
@@ -28,7 +27,6 @@ function initializeWebSocket(server) {
             } catch (error) {
                 return false;
             }
-            // return true;
         }
     });
 
@@ -147,8 +145,13 @@ function closeWebSocket() {
 
 
 
+function getDashboardWss() {
+    return wss;
+}
+
 module.exports = {
     initializeWebSocket,
     broadcastDashboardUpdate,
-    closeWebSocket
+    closeWebSocket,
+    getDashboardWss
 };

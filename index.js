@@ -52,18 +52,39 @@ app.post('/api/webhook/new-registration', (req, res) => {
 // Create a single HTTP server shared by Express + both WebSocket servers
 const server = http.createServer(app);
 
-// Dashboard WebSocket on /ws/dashboard (JWT-protected)
+// Dashboard WebSocket — JWT-protected, handles /ws/dashboard
+const { getDashboardWss } = require('./services/dashboardWebSocket');
 initializeWebSocket(server);
 
-// Webhook WebSocket on all other paths (unauthenticated)
-const wss = new WebSocket.Server({ server });
-wss.on('connection', (ws) => {
+// Webhook WebSocket — unauthenticated, handles all other WS paths
+const webhookWss = new WebSocket.Server({ noServer: true });
+webhookWss.on('connection', (ws) => {
   console.log('Webhook WebSocket client connected');
   clients.add(ws);
   ws.on('close', () => {
     console.log('Webhook WebSocket client disconnected');
     clients.delete(ws);
   });
+});
+
+// Route WebSocket upgrades manually to prevent double-handling
+server.on('upgrade', (req, socket, head) => {
+  const pathname = req.url.split('?')[0];
+  if (pathname === '/ws/dashboard') {
+    // Handled internally by dashboardWebSocket's WSS (noServer mode)
+    const dashWss = getDashboardWss();
+    if (dashWss) {
+      dashWss.handleUpgrade(req, socket, head, (ws) => {
+        dashWss.emit('connection', ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
+  } else {
+    webhookWss.handleUpgrade(req, socket, head, (ws) => {
+      webhookWss.emit('connection', ws, req);
+    });
+  }
 });
 
 server.listen(PORT, () => {
