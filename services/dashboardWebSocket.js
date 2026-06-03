@@ -43,7 +43,7 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        const COLLECTIONS = ['sme25registrations', 'sme26registrations'];
+        const COLLECTIONS = ['sme26registrations'];
         const pipeline = [
             {
                 $group: {
