@@ -66,7 +66,10 @@ router.post('/check-nic', async (req, res) => {
                 firstName: firstName
             });
         } else {
-            // Fallback: Check external API
+            // Fallback: Check external API (only when ENABLE_EXTERNAL_API flag is on)
+            if (!env.ENABLE_EXTERNAL_API) {
+                return res.json({ success: true, exists: false, hasMySmeAccount: false });
+            }
             try {
                 const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
                 if (!externalApiUrl) {
@@ -303,7 +306,11 @@ router.post('/login', async (req, res) => {
             });
         } else {
             // Case 2: User not found locally OR User found but has no local password
-            // Fallback: Verify password with external API
+            // Fallback: Verify password with external API (only when ENABLE_EXTERNAL_API flag is on)
+            if (!env.ENABLE_EXTERNAL_API) {
+                await client.close();
+                return res.status(401).json({ success: false, message: 'Invalid credentials' });
+            }
             try {
                 const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
                 if (!externalApiUrl) {
@@ -465,7 +472,8 @@ router.get('/profile', authenticateToken, async (req, res) => {
                     attended_days: 1,
                     // _id: 1,
                     results_released: 1,
-                    check_results_button_clicks_count: 1
+                    check_results_button_clicks_count: 1,
+                    exam_center_confirmed: 1
                 }
             }
         );
@@ -491,12 +499,37 @@ router.get('/profile', authenticateToken, async (req, res) => {
             }
             
             candidate.your_exam_center = "Still being finalized. Stay tuned!";
+
+            // Exam center confirmation status
+            const examCenterConfirmed = candidate.exam_center_confirmed === true;
+            candidate.exam_center_confirmed = examCenterConfirmed;
+
+            if (!examCenterConfirmed) {
+                try {
+                    const centersDb = new MongoClient(mongoURI);
+                    await centersDb.connect();
+                    const examCenters = await centersDb
+                        .db(dbName)
+                        .collection('sme26examcenters')
+                        .find({ is_active: true }, { projection: { center_name: 1, _id: 0 } })
+                        .toArray();
+                    await centersDb.close();
+                    candidate.eligible_exam_centers = examCenters.map(c => c.center_name);
+                } catch (centersError) {
+                    console.error('Error fetching exam centers:', centersError.message);
+                    candidate.eligible_exam_centers = [];
+                }
+            }
             
             return res.json({ success: true, candidate });
         }
 
         // Fallback: fetch profile from external API using NIC from JWT token
         // External API: GET /api/v1/auth/profile/{NIC}
+        if (!env.ENABLE_EXTERNAL_API) {
+            return res.status(404).json({ success: false, message: 'Candidate not found' });
+        }
+
         const candidateNIC = req.user.NIC;
         const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
 
@@ -553,6 +586,75 @@ router.get('/profile', authenticateToken, async (req, res) => {
         if (client) {
             await client.close();
         }
+    }
+});
+
+// Update candidate profile — set final_exam_center (only when exam_center_confirmed is false)
+router.post('/update_profile', authenticateToken, async (req, res) => {
+    const { final_exam_center } = req.body;
+
+    if (!final_exam_center || typeof final_exam_center !== 'string' || !final_exam_center.trim()) {
+        return res.status(400).json({ success: false, message: 'final_exam_center is required and must be a non-empty string.' });
+    }
+
+    let client;
+    try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+        const db = client.db(dbName);
+
+        // 1. Validate center name exists in sme26examcenters
+        const validCenter = await db.collection('sme26examcenters').findOne(
+            { center_name: final_exam_center.trim(), is_active: true },
+            { projection: { center_name: 1 } }
+        );
+        if (!validCenter) {
+            return res.status(400).json({ success: false, message: `"${final_exam_center}" is not a valid exam center.` });
+        }
+
+        // 2. Find the candidate across collections
+        const { candidate, collectionName } = await findCandidateInCollections(
+            db,
+            { _id: new ObjectId(req.user.id) },
+            { projection: { exam_center_confirmed: 1 } }
+        );
+
+        if (!candidate) {
+            return res.status(404).json({ success: false, message: 'Candidate not found.' });
+        }
+
+        // 3. Block update if already confirmed
+        if (candidate.exam_center_confirmed === true) {
+            return res.status(409).json({
+                success: false,
+                message: 'Exam center has already been confirmed and cannot be changed.'
+            });
+        }
+
+        // 4. Apply the update
+        await db.collection(collectionName).updateOne(
+            { _id: new ObjectId(req.user.id) },
+            {
+                $set: {
+                    final_exam_center: final_exam_center.trim(),
+                    exam_center_confirmed: true,
+                    exam_center_confirmed_at: getSriLankaTime()
+                }
+            }
+        );
+
+        return res.json({
+            success: true,
+            message: 'Exam center confirmed successfully.',
+            final_exam_center: final_exam_center.trim(),
+            exam_center_confirmed: true
+        });
+
+    } catch (error) {
+        console.error('Error in update_profile:', error);
+        return res.status(500).json({ success: false, message: 'Server error while updating profile.' });
+    } finally {
+        if (client) await client.close();
     }
 });
 
@@ -733,6 +835,10 @@ router.post('/b2b-tickets', authenticateToken, async (req, res) => {
 
     const externalApiUrl = env.EXTERNAL_SS_QUIZ_API_URL;
     const apiKey = env.EXTERNAL_SS_QUIZ_API_KEY;
+
+    if (!env.ENABLE_EXTERNAL_API) {
+        return res.status(503).json({ success: false, message: 'External API is currently disabled' });
+    }
 
     if (!externalApiUrl) {
         console.error('EXTERNAL_SS_QUIZ_API_URL is not defined in environment variables');

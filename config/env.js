@@ -45,6 +45,11 @@ module.exports = {
     EXTERNAL_SS_QUIZ_API_URL: process.env.EXTERNAL_SS_QUIZ_API_URL,
     EXTERNAL_SS_QUIZ_API_KEY: process.env.EXTERNAL_SS_QUIZ_API_KEY,
 
+    // Feature Flags
+    // Set ENABLE_EXTERNAL_API=true in .env or Heroku config to enable external API fallbacks.
+    // Defaults to false — all external API calls are skipped when this is not 'true'.
+    ENABLE_EXTERNAL_API: process.env.ENABLE_EXTERNAL_API === 'true',
+
     // Azure Email / OTP Configuration
     AZURE_EMAIL_ENDPOINT: process.env.AZURE_EMAIL_ENDPOINT,
     AZURE_EMAIL_API_KEY: process.env.AZURE_EMAIL_API_KEY
