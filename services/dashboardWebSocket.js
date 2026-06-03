@@ -43,45 +43,29 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        const centers = ['Colombo', 'Kandy', 'Galle'];
-        const result = {};
-
-        // Use aggregation pipeline for efficient single query instead of multiple queries
+        // Aggregate count per exam center — works for any center values in the DB
         const aggregationResult = await CandidateModel.aggregate([
             {
                 $match: {
-                    'Preferred Exam Center': { $in: centers }
+                    'Preferred Exam Center': { $exists: true, $ne: null, $ne: '' }
                 }
             },
             {
                 $group: {
-                    _id: {
-                        center: '$Preferred Exam Center',
-                        status: '$participation_status'
-                    },
+                    _id: '$Preferred Exam Center',
                     count: { $sum: 1 }
                 }
+            },
+            {
+                $sort: { _id: 1 } // alphabetical by center name
             }
         ]);
 
-        // Initialize result structure
-        centers.forEach(center => {
-            const centerKey = center.toLowerCase();
-            result[centerKey] = { total: 0, confirmed: 0, rejected: 0, not_reachable: 0 };
-        });
-
-        // Process aggregation results
-        aggregationResult.forEach(item => {
-            const centerKey = item._id.center.toLowerCase();
-            const status = item._id.status || 'unknown';
-
-            if (result[centerKey]) {
-                result[centerKey].total += item.count;
-                if (result[centerKey][status] !== undefined) {
-                    result[centerKey][status] = item.count;
-                }
-            }
-        });
+        // Shape into array of { center, count } objects
+        const result = aggregationResult.map(item => ({
+            center: item._id,
+            count: item.count
+        }));
 
         // Cache the result
         cachedDashboardData = result;
