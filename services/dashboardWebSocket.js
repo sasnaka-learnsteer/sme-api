@@ -43,21 +43,54 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        const COLLECTIONS = ['sme26registrations'];
-        const pipeline = [
-            {
-                $group: {
-                    _id: '$Preferred Exam Center',
-                    count: { $sum: 1 }
-                }
-            }
-        ];
-
-        // Run aggregation on both collections in parallel
+        const COLLECTIONS = ['sme25registrations', 'sme26registrations'];
+        
+        // Run aggregation on collections in parallel with specific logic per collection
         const results = await Promise.all(
-            COLLECTIONS.map(name => mongoPool.getCollection(name)
-                .then(col => col.aggregate(pipeline).toArray())
-            )
+            COLLECTIONS.map(name => {
+                let pipeline;
+                
+                if (name === 'sme25registrations') {
+                    // For sme25, only use final_exam_center, ignore docs without it
+                    pipeline = [
+                        {
+                            $match: {
+                                final_exam_center: { $exists: true, $ne: null, $ne: "" }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: '$final_exam_center',
+                                count: { $sum: 1 }
+                            }
+                        }
+                    ];
+                } else {
+                    // For sme26, prioritize final_exam_center, fallback to Preferred Exam Center
+                    pipeline = [
+                        {
+                            $project: {
+                                centerToGroup: {
+                                    $cond: [
+                                        { $and: [ { $ne: ["$final_exam_center", null] }, { $ne: ["$final_exam_center", ""] } ] },
+                                        "$final_exam_center",
+                                        "$Preferred Exam Center"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: '$centerToGroup',
+                                count: { $sum: 1 }
+                            }
+                        }
+                    ];
+                }
+
+                return mongoPool.getCollection(name)
+                    .then(col => col.aggregate(pipeline).toArray());
+            })
         );
 
         // Merge counts across both collections by center name
