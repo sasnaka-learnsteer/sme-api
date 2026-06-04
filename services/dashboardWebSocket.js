@@ -43,70 +43,75 @@ async function calculateDashboardData() {
             return cachedDashboardData;
         }
 
-        const COLLECTIONS = ['sme25registrations', 'sme26registrations'];
-        
-        // Run aggregation on collections in parallel with specific logic per collection
-        const results = await Promise.all(
-            COLLECTIONS.map(name => {
-                let pipeline;
-                
-                if (name === 'sme25registrations') {
-                    // For sme25, only use final_exam_center, ignore docs without it
-                    pipeline = [
-                        {
-                            $match: {
-                                final_exam_center: { $exists: true, $ne: null, $ne: "" }
-                            }
-                        },
-                        {
-                            $group: {
-                                _id: '$final_exam_center',
-                                count: { $sum: 1 }
-                            }
-                        }
-                    ];
-                } else {
-                    // For sme26, prioritize final_exam_center, fallback to Preferred Exam Center
-                    pipeline = [
-                        {
-                            $project: {
-                                centerToGroup: {
-                                    $cond: [
-                                        { $and: [ { $ne: ["$final_exam_center", null] }, { $ne: ["$final_exam_center", ""] } ] },
-                                        "$final_exam_center",
-                                        "$Preferred Exam Center"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            $group: {
-                                _id: '$centerToGroup',
-                                count: { $sum: 1 }
-                            }
-                        }
-                    ];
+        const pSme25 = mongoPool.getCollection('sme25registrations')
+            .then(col => col.aggregate([
+                {
+                    $match: { final_exam_center: { $exists: true, $ne: null, $ne: "" } }
+                },
+                {
+                    $group: {
+                        _id: '$final_exam_center',
+                        confirmed_count: { $sum: 1 }
+                    }
                 }
+            ]).toArray());
 
-                return mongoPool.getCollection(name)
-                    .then(col => col.aggregate(pipeline).toArray());
-            })
-        );
+        const pSme26Confirmed = mongoPool.getCollection('sme26registrations')
+            .then(col => col.aggregate([
+                {
+                    $project: {
+                        centerToGroup: {
+                            $cond: [
+                                { $and: [ { $ne: ["$final_exam_center", null] }, { $ne: ["$final_exam_center", ""] } ] },
+                                "$final_exam_center",
+                                "$Preferred Exam Center"
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$centerToGroup',
+                        confirmed_count: { $sum: 1 }
+                    }
+                }
+            ]).toArray());
 
-        // Merge counts across both collections by center name
+        const pSme26Registered = mongoPool.getCollection('sme26registrations')
+            .then(col => col.aggregate([
+                {
+                    $group: {
+                        _id: '$Preferred Exam Center',
+                        registered_count: { $sum: 1 }
+                    }
+                }
+            ]).toArray());
+
+        const [sme25Res, sme26ConfRes, sme26RegRes] = await Promise.all([pSme25, pSme26Confirmed, pSme26Registered]);
+
         const centerMap = new Map();
-        for (const colResult of results) {
-            for (const item of colResult) {
-                if (!item._id) continue; // skip null / empty
-                const prev = centerMap.get(item._id) || 0;
-                centerMap.set(item._id, prev + item.count);
+        
+        const mergeResults = (results, countField) => {
+            for (const item of results) {
+                if (!item._id) continue;
+                const prev = centerMap.get(item._id) || { confirmed_count: 0, registered_count: 0 };
+                prev[countField] += item[countField] || 0;
+                centerMap.set(item._id, prev);
             }
-        }
+        };
 
-        // Sort alphabetically and shape into { center, count } array
+        mergeResults(sme25Res, 'confirmed_count');
+        mergeResults(sme26ConfRes, 'confirmed_count');
+        mergeResults(sme26RegRes, 'registered_count');
+
+        // Sort alphabetically and shape into output format
         const result = Array.from(centerMap.entries())
             .sort(([a], [b]) => a.localeCompare(b))
-            .map(([center, count]) => ({ center, count }));
+            .map(([center, counts]) => ({ 
+                center, 
+                confirmed_count: counts.confirmed_count,
+                registered_count: counts.registered_count 
+            }));
 
         // Cache the result
         cachedDashboardData = result;

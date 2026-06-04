@@ -8,6 +8,9 @@ const {generateAndStoreQRCodes} = require("./routes/qrCodeRoutes");
 const initScheduler = async () => {
     console.log('Initializing scheduler...');
 
+    // --- ALL SCHEDULED JOBS AND STARTUP TASKS HAVE BEEN TEMPORARILY DISABLED ---
+    
+    /*
     // Daily task at midnight (cleaning collections)
     cron.schedule('0 0 * * *', async () => {
         try {
@@ -81,8 +84,9 @@ const initScheduler = async () => {
     } catch (error) {
         console.error('Startup task failed [generateAndStoreQRCodes]:', error);
     }
+    */
 
-    console.log('Scheduler initialized successfully');
+    console.log('Scheduler initialized successfully (All jobs currently disabled)');
 };
 
 module.exports = { initScheduler };
