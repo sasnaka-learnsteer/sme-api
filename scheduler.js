@@ -4,11 +4,24 @@ const { syncData, cleanCollection } = require('./scheduler/dataSyncToMongo_sched
 const { updateExamIndexNumbers } = require('./services/indexNumberGenerator');
 const {cleanAdminCollection, syncAdminData} = require("./scheduler/adminDataSyncToMongo");
 const {generateAndStoreQRCodes} = require("./routes/qrCodeRoutes");
+const { assignMissingIndexAndQRForAllCenters } = require('./scheduler/assignMissingIndexAndQR');
 
 const initScheduler = async () => {
     console.log('Initializing scheduler...');
 
-    // --- ALL SCHEDULED JOBS AND STARTUP TASKS HAVE BEEN TEMPORARILY DISABLED ---
+    // Run missing index number & QR generation every 1 hour
+    cron.schedule('0 * * * *', async () => {
+        try {
+            console.log('Running hourly scheduled task: assignMissingIndexAndQRForAllCenters()', new Date().toISOString());
+            await assignMissingIndexAndQRForAllCenters();
+            console.log('Completed hourly scheduled task: assignMissingIndexAndQRForAllCenters()', new Date().toISOString());
+        } catch (error) {
+            console.error('Hourly Scheduler error:', error);
+        }
+    });
+    console.log('[CRON JOB] assignMissingIndexAndQRForAllCenters() is started. Will run hourly at minute 0.');
+
+    // --- OTHER SCHEDULED JOBS HAVE BEEN TEMPORARILY DISABLED ---
     
     /*
     // Daily task at midnight (cleaning collections)
@@ -86,7 +99,7 @@ const initScheduler = async () => {
     }
     */
 
-    console.log('Scheduler initialized successfully (All jobs currently disabled)');
+    console.log('Scheduler initialized successfully');
 };
 
 module.exports = { initScheduler };
