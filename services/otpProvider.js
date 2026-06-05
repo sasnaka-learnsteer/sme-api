@@ -11,7 +11,7 @@ async function sendEmailOtp(email, otp) {
     const message = {
         to: email,
         from: `${otpSender}`,
-        subject: 'Sasnaka LearnSteer - Password Reset Verification Code',
+        subject: 'MySME - Password Reset Verification Code',
         text: `Your OTP is ${otp}. It expires in ${expiryMinutes} minutes.`,
         html: `
             <div style="font-family: Arial, sans-serif;">
