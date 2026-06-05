@@ -180,6 +180,7 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     if (attendedDays.includes(today)) {
       return res.status(200).json({
         success: true,
+        verified: false, // For backward compatibility with old frontend
         message: 'Attendance is Marked',
         warning: true,
         examIndexNumber: examIndexNumber,
@@ -200,6 +201,7 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     // Return the attendance confirmation
     return res.status(200).json({
       success: true,
+      verified: true, // For backward compatibility with old frontend
       message: 'Marked Attendance',
       warning: false,
       examIndexNumber: examIndexNumber,
