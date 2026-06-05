@@ -171,6 +171,7 @@ router.post('/register', async (req, res) => {
             'Medium': medium,
             'District': district,
             'Preferred Exam Center': preferredExamCenter,
+            exam_center_confirmed26: false,
             createdAt: getSriLankaTime()
         };
 

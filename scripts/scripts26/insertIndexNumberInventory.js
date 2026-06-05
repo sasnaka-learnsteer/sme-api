@@ -73,24 +73,35 @@ async function insertIndexNumberInventory() {
 
         console.log(`✔ Loaded ${streams.length} stream(s) from sme26streams`);
 
-        // Guard: skip if already seeded
-        const existing = await collection.countDocuments();
-        if (existing > 0) {
-            console.log(`⚠️  Collection "${INVENTORY_COLLECTION}" already has ${existing} document(s). Skipping insert.`);
-            console.log('   Drop the collection first if you want to re-seed.');
-            return;
-        }
-
-        // Unique index on index_number to enforce no duplicates
+        // Ensure indexes exist (idempotent)
         await collection.createIndex({ index_number: 1 }, { unique: true });
         await collection.createIndex({ center_id: 1 });
         await collection.createIndex({ exam_year: 1 });
         await collection.createIndex({ is_assigned: 1 });
 
-        const allDocs = [];
-        const globalUsed = new Set(); // ensure uniqueness across the entire collection
+        // Find which centers already have inventory
+        const existingCenterIds = await collection.distinct('center_id');
+        const newCenters = centers.filter(c => !existingCenterIds.includes(c.center_id));
 
-        for (const center of centers) {
+        if (newCenters.length === 0) {
+            console.log(`⚠️  All ${centers.length} center(s) already have index numbers in "${INVENTORY_COLLECTION}". Nothing to insert.`);
+            return;
+        }
+
+        console.log(`✔ Found ${newCenters.length} new center(s) needing index numbers:`);
+        newCenters.forEach(c => console.log(`   - ${c.center_name} (${c.center_id})`));
+        if (existingCenterIds.length > 0) {
+            console.log(`   (${existingCenterIds.length} center(s) already have inventory — skipped)`);
+        }
+
+        // Load existing index numbers to avoid collisions
+        const existingNumbers = new Set(
+            (await collection.find({}, { projection: { index_number: 1 } }).toArray())
+                .map(d => d.index_number)
+        );
+        const allDocs = [];
+
+        for (const center of newCenters) {
             for (const stream of streams) {
                 const prefix = `${center.center_digit}${stream.stream_digit}`;
                 let generated = 0;
@@ -99,8 +110,8 @@ async function insertIndexNumberInventory() {
                     const suffix = String(Math.floor(Math.random() * 100000)).padStart(5, '0');
                     const indexNumber = `${prefix}${suffix}`;
 
-                    if (!globalUsed.has(indexNumber)) {
-                        globalUsed.add(indexNumber);
+                    if (!existingNumbers.has(indexNumber)) {
+                        existingNumbers.add(indexNumber);
                         allDocs.push({
                             index_number: indexNumber,
                             exam_year: EXAM_YEAR,
@@ -134,8 +145,9 @@ async function insertIndexNumberInventory() {
         console.log(`\n✅ Done! Inserted ${inserted} index number documents into "${INVENTORY_COLLECTION}".`);
         console.log(`   Format: [center_digit][stream_digit][5-digit-random]`);
         console.log(`   Exam year: ${EXAM_YEAR}`);
+        console.log(`   New centers processed: ${newCenters.length}`);
         console.log(`   Per center: ${PER_CENTER_PER_STREAM * streams.length} (${PER_CENTER_PER_STREAM} × ${streams.length} streams)`);
-        console.log(`   Total: ${inserted}`);
+        console.log(`   Total new: ${inserted}`);
 
     } catch (error) {
         console.error('❌ Error:', error.message);
