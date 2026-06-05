@@ -149,8 +149,13 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
       if (!collName) continue;
       const collection = await mongoPool.getCollection(collName);
       candidate = await collection.findOne(
-        { examIndexNumber26: examIndexNumber },
-        { projection: { attended_days: 1, _id: 0 } } // Only fetch needed fields
+        {
+          $or: [
+            { examIndexNumber26: examIndexNumber },
+            { examIndexNumber: examIndexNumber }
+          ]
+        },
+        { projection: { attended_days: 1, _id: 1 } }
       );
       if (candidate) {
         foundCollectionName = collName;
@@ -188,7 +193,7 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     // Update the candidate's attendance record
     const foundCollection = await mongoPool.getCollection(foundCollectionName);
     await foundCollection.updateOne(
-      { examIndexNumber26: examIndexNumber },
+      { _id: candidate._id },
       { $set: { attended_days: updatedAttendedDays } }
     );
 

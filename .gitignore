@@ -75,3 +75,7 @@ function.zip
 
 # Example env file (contains sensitive structure)
 .env.example
+
+# Output folders
+output/
+outputs/
