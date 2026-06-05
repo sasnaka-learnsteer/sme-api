@@ -48,6 +48,36 @@ async function assignIndexNumber26(db, finalExamCenter, subjectStream, nic) {
     }
 }
 
+/**
+ * Frees any index numbers assigned to the given NIC in the sme26indexnumbers inventory.
+ * 
+ * @param {import('mongodb').Db} db - The MongoDB database instance
+ * @param {string} nic - The candidate's NIC
+ * @returns {Promise<boolean>} True if index numbers were freed, false otherwise
+ */
+async function freeIndexNumber26(db, nic) {
+    if (!nic) return false;
+
+    try {
+        const result = await db.collection('sme26indexnumbers').updateMany(
+            { assigned_to: nic },
+            {
+                $set: {
+                    is_assigned: false,
+                    status: 'available',
+                    assigned_to: null,
+                    assigned_at: null
+                }
+            }
+        );
+        return result.modifiedCount > 0;
+    } catch (error) {
+        console.error(`[IndexService] Error freeing index number for NIC ${nic}:`, error);
+        return false;
+    }
+}
+
 module.exports = {
-    assignIndexNumber26
+    assignIndexNumber26,
+    freeIndexNumber26
 };
