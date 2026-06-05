@@ -4,7 +4,16 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { MongoClient } = require('mongodb');
 const {MONGODB_COLLECTION, MONGODB_DB, MONGODB_URI} = require("../config/env");
+const { assignIndexNumber26, freeIndexNumber26 } = require('../services/indexNumberService');
+const { generateCandidateQRCode } = require('../services/qrCodeService');
 require('dotenv').config();
+
+function getSriLankaTime() {
+    const d = new Date();
+    const utcTime = d.getTime();
+    const slTime = new Date(utcTime + (5.5 * 60 * 60 * 1000));
+    return slTime.toISOString().replace('Z', '+05:30');
+}
 
 // Middleware to verify admin token
 const verifyAdminToken = (req, res, next) => {
@@ -256,6 +265,105 @@ router.get('/api/exams', verifyAdminToken, async (req, res) => {
         const exams = await examsCollection.find({}).toArray();
         res.json({ exams });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    } finally {
+        await client.close();
+    }
+});
+
+router.post('/candidate-update-exam-center-admin', verifyAdminToken, async (req, res) => {
+    const { NIC, newExamCenter } = req.body;
+    
+    if (!NIC || !newExamCenter || !newExamCenter.trim()) {
+        return res.status(400).json({ error: 'NIC and newExamCenter are required' });
+    }
+
+    const client = new MongoClient(MONGODB_URI);
+    try {
+        await client.connect();
+        const db = client.db(MONGODB_DB);
+        
+        // 1. Verify the newExamCenter is a valid active center
+        const validCenter = await db.collection('sme26examcenters').findOne(
+            { center_name: newExamCenter.trim(), is_active: true },
+            { projection: { center_name: 1 } }
+        );
+        if (!validCenter) {
+            return res.status(400).json({ error: `"${newExamCenter}" is not a valid exam center.` });
+        }
+
+        // 2. Find the candidate across collections (sme26registrations, then MONGODB_COLLECTION)
+        const collectionsToCheck = ['sme26registrations', MONGODB_COLLECTION];
+        let candidate = null;
+        let foundCollectionName = null;
+        
+        for (const collName of collectionsToCheck) {
+            if (!collName) continue;
+            candidate = await db.collection(collName).findOne({ NIC });
+            if (candidate) {
+                foundCollectionName = collName;
+                break;
+            }
+        }
+
+        if (!candidate) {
+            return res.status(404).json({ error: 'Candidate not found' });
+        }
+
+        // 3. Free old index number
+        await freeIndexNumber26(db, NIC);
+
+        // 4. Assign new index number
+        const subjectStream = candidate['Subject Stream'];
+        const assignedIndexNumber = await assignIndexNumber26(db, newExamCenter.trim(), subjectStream, NIC);
+
+        // 5. Generate new QR code if assigned
+        let qrCodeData = null;
+        let qrCode = null;
+        let qrCodeGeneratedAt = null;
+        
+        if (assignedIndexNumber) {
+            const qrResult = await generateCandidateQRCode(assignedIndexNumber, getSriLankaTime());
+            if (qrResult) {
+                qrCode = qrResult.qrCode;
+                qrCodeData = qrResult.qrCodeData;
+                qrCodeGeneratedAt = qrResult.qrCodeGeneratedAt;
+            }
+        }
+
+        // 6. Update candidate document
+        const updateFields = {
+            final_exam_center: newExamCenter.trim(),
+            exam_center_confirmed26: true,
+            exam_center_confirmed26_at: getSriLankaTime()
+        };
+
+        if (assignedIndexNumber) {
+            updateFields.examIndexNumber26 = assignedIndexNumber;
+            // Also update examIndexNumber for backward compatibility if needed
+            updateFields.examIndexNumber = assignedIndexNumber; 
+        }
+
+        if (qrCode) {
+            updateFields.qrCode = qrCode;
+            updateFields.qrCodeData = qrCodeData;
+            updateFields.qrCodeGeneratedAt = qrCodeGeneratedAt;
+        }
+
+        const result = await db.collection(foundCollectionName).updateOne(
+            { NIC },
+            { $set: updateFields }
+        );
+
+        res.json({ 
+            message: 'Exam center updated successfully', 
+            modifiedCount: result.modifiedCount,
+            examIndexNumber26: assignedIndexNumber,
+            qrCode: qrCode ? 'Generated' : null
+        });
+
+    } catch (error) {
+        console.error('Error changing exam center by admin:', error);
         res.status(500).json({ error: error.message });
     } finally {
         await client.close();
