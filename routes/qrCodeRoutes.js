@@ -170,8 +170,8 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
       });
     }
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's date in YYYY-MM-DD format (Sri Lanka Time: UTC+05:30)
+    const today = new Date(Date.now() + (5.5 * 60 * 60 * 1000)).toISOString().split('T')[0];
 
     // Get or initialize the attended_days array
     const attendedDays = candidate.attended_days || [];
