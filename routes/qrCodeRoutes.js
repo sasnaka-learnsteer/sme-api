@@ -138,13 +138,30 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
   const examIndexNumber = req.params.examIndexNumber;
 
   try {
-    const collection = await mongoPool.getCollection(process.env.MONGODB_COLLECTION);
+    const candidateCollection = process.env.MONGODB_COLLECTION;
+    const collectionsToCheck = ['sme26registrations', candidateCollection];
 
-    // Find the candidate by exam index number
-    const candidate = await collection.findOne(
-      { examIndexNumber },
-      { projection: { attended_days: 1, _id: 0 } } // Only fetch needed fields
-    );
+    let candidate = null;
+    let foundCollectionName = null;
+
+    // Find the candidate by exam index number across collections
+    for (const collName of collectionsToCheck) {
+      if (!collName) continue;
+      const collection = await mongoPool.getCollection(collName);
+      candidate = await collection.findOne(
+        {
+          $or: [
+            { examIndexNumber26: examIndexNumber },
+            { examIndexNumber: examIndexNumber }
+          ]
+        },
+        { projection: { attended_days: 1, _id: 1 } }
+      );
+      if (candidate) {
+        foundCollectionName = collName;
+        break;
+      }
+    }
 
     if (!candidate) {
       return res.status(404).json({
@@ -153,8 +170,8 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
       });
     }
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's date in YYYY-MM-DD format (Sri Lanka Time: UTC+05:30)
+    const today = new Date(Date.now() + (5.5 * 60 * 60 * 1000)).toISOString().split('T')[0];
 
     // Get or initialize the attended_days array
     const attendedDays = candidate.attended_days || [];
@@ -163,6 +180,7 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     if (attendedDays.includes(today)) {
       return res.status(200).json({
         success: true,
+        verified: false, // For backward compatibility with old frontend
         message: 'Attendance is Marked',
         warning: true,
         examIndexNumber: examIndexNumber,
@@ -174,14 +192,16 @@ router.get('/verify-qr/:examIndexNumber', async (req, res) => {
     const updatedAttendedDays = [...attendedDays, today];
 
     // Update the candidate's attendance record
-    await collection.updateOne(
-      { examIndexNumber },
+    const foundCollection = await mongoPool.getCollection(foundCollectionName);
+    await foundCollection.updateOne(
+      { _id: candidate._id },
       { $set: { attended_days: updatedAttendedDays } }
     );
 
     // Return the attendance confirmation
     return res.status(200).json({
       success: true,
+      verified: true, // For backward compatibility with old frontend
       message: 'Marked Attendance',
       warning: false,
       examIndexNumber: examIndexNumber,
