@@ -52,5 +52,9 @@ module.exports = {
 
     // Azure Email / OTP Configuration
     AZURE_EMAIL_ENDPOINT: process.env.AZURE_EMAIL_ENDPOINT,
-    AZURE_EMAIL_API_KEY: process.env.AZURE_EMAIL_API_KEY
+    AZURE_EMAIL_API_KEY: process.env.AZURE_EMAIL_API_KEY,
+
+    // SEND GRID OTP
+    SEND_GRID_API_KEY: process.env.SEND_GRID_API_KEY,
+    OTP_SENDER_EMAIL:process.env.OTP_SENDER_EMAIL,
 };

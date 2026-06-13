@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const { MongoClient, ObjectId } = require('mongodb');
 const { authenticateToken } = require('../middleware/auth');
 const env = require('../config/env');
-const { sendEmailOtp } = require('../services/emailService');
+const { sendEmailOtp } = require('../services/otpProvider');
 const { assignIndexNumber26 } = require('../services/indexNumberService');
 const { generateCandidateQRCode } = require('../services/qrCodeService');
 
